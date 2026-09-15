@@ -2339,20 +2339,11 @@ function openDescEditor(caseId, field){
   ta._descCompEnd = function(){ setTimeout(function(){ descIsComposing = false; }, 0); };
   ta._descKeyHandler = function(e){
     if(e.key === 'Escape'){
+      // 桌機方便：Esc 關閉（等同完成）
       closeDescEditor();
-    } else if(e.key === 'Enter'){
-      if(descIsComposing || e.isComposing){
-        // 輸入法選字中，不做任何事
-        return;
-      } else if(e.shiftKey){
-        // Shift+Enter：換行，讓預設行為繼續
-        return;
-      } else {
-        // Enter：儲存並跳出
-        e.preventDefault();
-        closeDescEditor();
-      }
     }
+    // Enter＝純換行：全螢幕大文字框本來就要能自由換行，
+    // 不攔截 Enter、不送出。要儲存請按「完成」或鍵盤的「打勾」收起。
   };
   ta.addEventListener('compositionstart', ta._descCompStart);
   ta.addEventListener('compositionend', ta._descCompEnd);
