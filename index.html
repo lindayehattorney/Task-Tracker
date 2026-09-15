@@ -1640,7 +1640,26 @@ function getMemberName(id){
 
 function renderCases(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
-  let data=currentMemberId?cases.filter(c=>(c.personIds||[]).includes(currentMemberId)):cases.slice();
+  // 判斷目前選的負責人是不是「小秘書」
+  var currentMember = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
+  var isSecretary = currentMember && currentMember.name==='小秘書';
+  let data;
+  if(isSecretary){
+    // 小秘書專屬：篩選「行政事項」或「行政截止日」任一有填的案件
+    data = cases.filter(c=>(c.adminNote && c.adminNote.trim()!=='') || (c.adminDeadline && c.adminDeadline.trim()!==''));
+    // 照行政截止日排序（愈早愈前面，沒填的排最後）
+    data.sort(function(a,b){
+      var da = a.adminDeadline||'', db = b.adminDeadline||'';
+      if(!da && !db) return 0;
+      if(!da) return 1;
+      if(!db) return -1;
+      return da < db ? -1 : (da > db ? 1 : 0);
+    });
+  } else if(currentMemberId){
+    data = cases.filter(c=>(c.personIds||[]).includes(currentMemberId));
+  } else {
+    data = cases.slice();
+  }
   if(q) data=data.filter(c=>{
     // 全域搜尋：涵蓋所有欄位，但排除負責人名字
     var fields=[
@@ -1677,7 +1696,13 @@ function renderCases(){
   var typeLabel = typeFilter==='litigation'?'訴訟':(typeFilter==='nonlitigation'?'非訟':(typeFilter==='counsel'?'法律顧問':'全部類型'));
   var statusLabel = statusFilter==='urgent'?'優先處理':(statusFilter==='progress'?'處理中':(statusFilter==='done'?'已完成':'全部狀態'));
   var viewTitleEl = document.getElementById('viewTitle');
-  if(viewTitleEl) viewTitleEl.textContent = typeLabel + ' · ' + statusLabel;
+  if(viewTitleEl){
+    if(currentMember){
+      viewTitleEl.textContent = currentMember.name;
+    } else {
+      viewTitleEl.textContent = typeLabel + ' · ' + statusLabel;
+    }
+  }
 
   // ── 類型統計列 ──
   document.getElementById('typeStatsRow').innerHTML=`
@@ -1700,15 +1725,17 @@ function renderCases(){
   }
   const mname=getMemberName.bind(null);
   // Sort: status priority, then deadline, then court
-  const statusOrder={urgent:0,progress:1,done:2};
-  data.sort((a,b)=>{
-    const sd=(statusOrder[a.status]??1)-(statusOrder[b.status]??1);
-    if(sd!==0) return sd;
-    const ad=a.deadline||'9999', bd=b.deadline||'9999';
-    if(ad!==bd) return ad<bd?-1:1;
-    const ac=a.court||'9999', bc=b.court||'9999';
-    return ac<bc?-1:ac>bc?1:0;
-  });
+  if(!isSecretary){
+    const statusOrder={urgent:0,progress:1,done:2};
+    data.sort((a,b)=>{
+      const sd=(statusOrder[a.status]??1)-(statusOrder[b.status]??1);
+      if(sd!==0) return sd;
+      const ad=a.deadline||'9999', bd=b.deadline||'9999';
+      if(ad!==bd) return ad<bd?-1:1;
+      const ac=a.court||'9999', bc=b.court||'9999';
+      return ac<bc?-1:ac>bc?1:0;
+    });
+  }
   body.innerHTML=data.map(c=>{
     var trClass = (selectMode?'select-row':'') + (selectedCaseIds.includes(c.id)?' row-selected':'');
     return '<tr class="'+trClass+'" data-case-id="'+c.id+'">'+
@@ -1963,7 +1990,7 @@ function renderPersonChips(c){
     return 0;
   });
   return '<div style="display:flex;flex-direction:column;gap:3px;">'+chipMembers.map(m=>{
-    var goldStyle = (m.name==='所長督辦') ? ' style="color:#5FC98E;border-color:#5FC98E"' : '';
+    var goldStyle = (m.name==='所長督辦') ? ' style="color:var(--gold);border-color:var(--gold)"' : '';
     return `<span class="pchip"${goldStyle}>${m.name}</span>`;
   }).join('')+'</div>';
 }
