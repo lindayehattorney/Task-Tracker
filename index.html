@@ -1253,7 +1253,10 @@ function renderSidebar(){
 
 function selectAll(){
   currentMemberId=null;
-  document.getElementById('viewTitle').textContent='全部案件';
+  typeFilter=null;      // 清除類型篩選
+  statusFilter=null;    // 清除狀態篩選
+  var searchEl=document.getElementById('searchInput');
+  if(searchEl) searchEl.value='';  // 清除搜尋
   renderSidebar(); renderCases();
 }
 function selectMember(id){
