@@ -54,6 +54,7 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-add{background:var(--gold);color:var(--navy);font-weight:700;}
 .tn-add:hover{background:var(--gold-l);}
 .tn-divider{width:1px;height:24px;background:var(--bd);flex-shrink:0;margin:0 4px;}
+.tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
 .tn-member:hover{border-color:var(--bd-b);}
 .tn-member.active{background:rgba(201,168,76,0.14);color:var(--gold);border-color:var(--bd-b);}
@@ -246,6 +247,10 @@ tbody tr:hover .del-btn{opacity:1;}
   /* 人員頁籤：全部展開換行，不橫向捲動（讓 #memberItems 的子項參與 topnav 換行）*/
   #memberItems { display: contents !important; }
   .tn-member { flex-shrink: 0; }
+  /* 「＋新增案件、全部案件」佔第一行，人員從第二行開始（純換行，不寫死斷點）*/
+  .tn-break { display: block !important; flex-basis: 100% !important; width: 100% !important; height: 0 !important; margin: 0 !important; }
+  /* 換行後 memberDivider 會落在行首很突兀，手機隱藏它（保留「新增案件｜全部案件」那條）*/
+  #memberDivider { display: none !important; }
   /* 手機不顯示「新增人員」加號 */
   #addMemberBtn { display: none !important; }
 
@@ -923,6 +928,7 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
       <i class="ti ti-layout-list" style="font-size:14px"></i> 全部案件
       <span class="m-count" id="allCount">0</span>
     </button>
+    <div class="tn-break" aria-hidden="true"></div>
     <div class="tn-divider" id="memberDivider" style="display:none"></div>
     <div id="memberItems" style="display:flex;align-items:center;gap:4px;"></div>
     <button class="tn-btn" id="addMemberBtn" onclick="openAddMember()" title="新增人員" style="display:none;padding:4px 8px;color:var(--tm);font-size:13px;"><i class="ti ti-plus"></i></button>
@@ -2022,19 +2028,19 @@ function renderMemoView(q, currentMember){
   // 上排
   document.getElementById('typeStatsRow').innerHTML =
     '<div class="memo-stat-box">' +
-      '<button class="tn-btn tn-add" onclick="addNewMemo()"><i class="ti ti-plus"></i> 新增待辦事項</button></div>' +
+      '<button class="tn-btn tn-add" onclick="addNewMemo()"><i class="ti ti-plus"></i> 新增</button></div>' +
     tagCell(MEMO_TAGS[0]) + tagCell(MEMO_TAGS[1]) + tagCell(MEMO_TAGS[2]);
   // 下排
   var allActive = (memoTagFilter===null);
   document.getElementById('statsRow').innerHTML =
     '<div class="memo-stat-box stat-clickable'+(allActive?' stat-active':'')+'" onclick="setMemoTagFilter(null)">' +
-      '<span class="memo-tag-lbl" style="color:var(--t1)">全部待辦事項</span></div>' +
+      '<span class="memo-tag-lbl" style="color:var(--t1)">全部</span></div>' +
     tagCell(MEMO_TAGS[3]) + tagCell(MEMO_TAGS[4]) + tagCell(MEMO_TAGS[5]);
 
   // ── 列表：待辦事項 → 標籤 → 截止日 → 詳細說明 → 刪除 ──
   var body = document.getElementById('caseBody');
   if(!data.length){
-    var emptyMsg = q ? '沒有符合的待辦事項' : (memoTagFilter ? '這個標籤底下沒有待辦事項' : '點擊「新增待辦事項」開始');
+    var emptyMsg = q ? '沒有符合的待辦事項' : (memoTagFilter ? '這個標籤底下沒有待辦事項' : '點擊「＋新增」開始');
     body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:44px;color:var(--tm)">'+emptyMsg+'</td></tr>';
     return;
   }
