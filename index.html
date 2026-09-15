@@ -856,6 +856,38 @@ html.is-ipad .stats-row { flex-wrap: nowrap; }
 html.is-ipad .stat-box { padding: 12px 18px; }
 html.is-ipad .modal { width: 72vw !important; max-width: 620px; }
 
+/* ═══ iPad：營運經理備忘錄卡片（照使用者修圖：第一行 標題左+標籤右；第二行 截止日左+詳細右）═══ */
+html.is-ipad body.memo-mode tbody tr:has(td.checkbox-col) {
+  grid-template-columns: 1fr 1fr !important;
+  grid-template-areas:
+    "mname  mtags"
+    "mddl   mdesc" !important;
+  column-gap: 24px;
+  row-gap: 16px;
+}
+/* 備忘錄欄位順序：checkbox(1) 待辦(2) 標籤(3) 截止日(4) 詳細(5) 刪除(6) */
+html.is-ipad body.memo-mode tbody td:nth-child(2) { grid-area: mname; }
+html.is-ipad body.memo-mode tbody td:nth-child(3) { grid-area: mtags; align-self: center; }
+html.is-ipad body.memo-mode tbody td:nth-child(4) { grid-area: mddl; margin-top: 6px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,0.12); }
+html.is-ipad body.memo-mode tbody td:nth-child(5) { grid-area: mdesc; margin-top: 6px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,0.12); }
+html.is-ipad body.memo-mode tbody td:nth-child(6) { display: none !important; } /* 紅色垃圾桶不顯示 */
+/* 待辦事項：大標題、靠左、無標籤 */
+html.is-ipad body.memo-mode tbody td:nth-child(2)::before { display: none !important; content: "" !important; }
+/* 標籤：靠右上（對應律師卡片狀態位置）、chip 橫向、無文字標籤 */
+html.is-ipad body.memo-mode tbody td:nth-child(3)::before { display: none !important; content: "" !important; }
+html.is-ipad body.memo-mode tbody td:nth-child(3) .cw { justify-content: flex-end; }
+html.is-ipad body.memo-mode tbody td:nth-child(3) .cw > div { flex-direction: row !important; flex-wrap: wrap; gap: 6px !important; justify-content: flex-end; }
+/* 截止日：左，標籤「截止日」 */
+html.is-ipad body.memo-mode tbody td:nth-child(4)::before { content: "截止日"; display: block; font-size: 14px; color: var(--tm); margin-bottom: 5px; font-weight: 400; }
+/* 詳細說明：右，標籤「詳細說明」、完整文字 */
+html.is-ipad body.memo-mode tbody td:nth-child(5)::before { content: "詳細說明"; display: block; font-size: 14px; color: var(--tm); margin-bottom: 5px; font-weight: 400; }
+html.is-ipad body.memo-mode tbody td:nth-child(5) .ct { white-space: pre-wrap; line-height: 1.6; font-size: 18px; color: var(--t2); }
+
+/* iPad：人員頁籤「⋯」編輯鈕藏起來，省寬度讓小秘書不用滑就顯示
+   （m-edit 是巢狀 button，被解析成 tn-member 的兄弟，直接掛在 memberItems 下）*/
+html.is-ipad #memberItems .m-edit, html.is-ipad .topnav .m-edit { display: none !important; }
+
+
 /* iPad：header 避開系統列（時間、電量、瀏海）*/
 html.is-ipad .header {
   height: auto;
