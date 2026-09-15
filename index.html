@@ -1564,11 +1564,6 @@ function addNewCase(){
   document.getElementById('cDesc').value='';
   editingCaseId=null;
   renderPersonCheckboxes([]);
-  // pre-select currentMember if viewing one person
-  if(currentMemberId){
-    const cb=document.querySelector(`.person-cb[data-id="${currentMemberId}"]`);
-    if(cb) cb.checked=true;
-  }
   document.getElementById('caseModal').classList.add('show');
   document.getElementById('cName').focus();
 }
@@ -2161,25 +2156,23 @@ function dragEnd(e){
     <div class="mbody">
       <div class="fg"><label class="flabel">案件名稱</label><input class="finput" id="cName"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div class="fg"><label class="flabel">類型</label>
-            <select class="fselect" id="cCaseType">
-              <option value="litigation" selected>訴訟</option>
-              <option value="nonlitigation">非訟</option>
-              <option value="counsel">法律顧問</option>
-            </select>
-          </div>
-          <div class="fg"><label class="flabel">狀態</label>
-            <select class="fselect" id="cStatus">
-              <option value="urgent">優先處理</option>
-              <option value="progress">處理中</option>
-              <option value="done">已完成</option>
-            </select>
-          </div>
+        <div class="fg"><label class="flabel">類型</label>
+          <select class="fselect" id="cCaseType">
+            <option value="litigation" selected>訴訟</option>
+            <option value="nonlitigation">非訟</option>
+            <option value="counsel">法律顧問</option>
+          </select>
         </div>
-        <div class="fg"><label class="flabel">負責人（可複選）</label>
-          <div id="personCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;"></div>
+        <div class="fg"><label class="flabel">狀態</label>
+          <select class="fselect" id="cStatus">
+            <option value="urgent">優先處理</option>
+            <option value="progress">處理中</option>
+            <option value="done">已完成</option>
+          </select>
         </div>
+      </div>
+      <div class="fg"><label class="flabel">負責人（可複選）</label>
+        <div id="personCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="fg">
