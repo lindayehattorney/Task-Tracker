@@ -1460,7 +1460,7 @@ function pickDate(dtStr){
 // ── Inline text editing ──
 function commitActiveCell(){
   if(!activeCell) return;
-  var caseId=activeCell.caseId, field=activeCell.field, input=activeCell.input;
+  var caseId=activeCell.caseId, field=activeCell.field, input=activeCell.input, td=activeCell.td;
   var caseObj=cases.find(function(x){return x.id===caseId;});
   var changed=false;
   if(caseObj){
@@ -1471,7 +1471,8 @@ function commitActiveCell(){
     }
   }
   activeCell=null;
-  if(changed) renderCases();
+  // 一律重繪以清掉輸入框，避免多個格子同時可編輯
+  renderCases();
 }
 function activateTextCell(td,caseId,field){
   if(activeCell&&activeCell.td===td) return;
@@ -1669,19 +1670,16 @@ function renderCases(){
   // 套用狀態篩選
   if(statusFilter) data=data.filter(c=>c.status===statusFilter);
 
-  // ── 動態標題 ──
-  var typeLabel = typeFilter==='litigation'?'訴訟':(typeFilter==='nonlitigation'?'非訟':(typeFilter==='counsel'?'法律顧問':''));
-  var statusLabel = statusFilter==='urgent'?'優先處理':(statusFilter==='progress'?'處理中':(statusFilter==='done'?'已完成':''));
-  var titleParts = [];
-  if(typeLabel) titleParts.push(typeLabel);
-  if(statusLabel) titleParts.push(statusLabel);
+  // ── 動態標題：一五一十，類型在前、狀態在後，「全部」也要寫出來 ──
+  var typeLabel = typeFilter==='litigation'?'訴訟':(typeFilter==='nonlitigation'?'非訟':(typeFilter==='counsel'?'法律顧問':'全部類型'));
+  var statusLabel = statusFilter==='urgent'?'優先處理':(statusFilter==='progress'?'處理中':(statusFilter==='done'?'已完成':'全部狀態'));
   var viewTitleEl = document.getElementById('viewTitle');
-  if(viewTitleEl) viewTitleEl.textContent = titleParts.length ? titleParts.join(' · ') : '全部案件';
+  if(viewTitleEl) viewTitleEl.textContent = typeLabel + ' · ' + statusLabel;
 
   // ── 類型統計列 ──
   document.getElementById('typeStatsRow').innerHTML=`
     <div class="stat-box stat-clickable${typeFilter===null?' stat-active':''}" onclick="setTypeFilter(null)"><div class="stat-num">${typeAll}</div><div class="stat-lbl">全部類型</div></div>
-    <div class="stat-box stat-clickable${typeFilter==='litigation'?' stat-active':''}" onclick="setTypeFilter('litigation')"><div class="stat-num">${typeLit}</div><div class="stat-lbl">訴訟</div></div>
+    <div class="stat-box stat-clickable${typeFilter==='litigation'?' stat-active':''}" onclick="setTypeFilter('litigation')"><div class="stat-num" style="color:#E8E2D0">${typeLit}</div><div class="stat-lbl">訴訟</div></div>
     <div class="stat-box stat-clickable${typeFilter==='nonlitigation'?' stat-active':''}" onclick="setTypeFilter('nonlitigation')"><div class="stat-num" style="color:#6BB6E8">${typeNon}</div><div class="stat-lbl">非訟</div></div>
     <div class="stat-box stat-clickable${typeFilter==='counsel'?' stat-active':''}" onclick="setTypeFilter('counsel')"><div class="stat-num" style="color:#5FC98E">${typeCounsel}</div><div class="stat-lbl">法律顧問</div></div>
   `;
