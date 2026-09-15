@@ -896,6 +896,23 @@ html.is-ipad body.memo-mode tbody td:nth-child(5) .ct { white-space: pre-wrap; l
    （m-edit 是巢狀 button，被解析成 tn-member 的兄弟，直接掛在 memberItems 下）*/
 html.is-ipad #memberItems .m-edit, html.is-ipad .topnav .m-edit { display: none !important; }
 
+/* iPad：標籤/負責人/狀態選單改成置中彈出（比照手機，不再貼著格子亂跳、蓋內容）
+   背景不變暗——遮罩維持透明，只負責點旁邊關閉 */
+html.is-ipad .status-popup,
+html.is-ipad #personPopup,
+html.is-ipad #memoTagPopup {
+  position: fixed !important;
+  top: 50% !important; left: 50% !important;
+  bottom: auto !important; right: auto !important;
+  transform: translate(-50%, -50%) !important;
+  width: 60vw !important; max-width: 420px;
+  max-height: 72vh; overflow-y: auto;
+  border-radius: 18px !important; padding: 20px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px var(--bd-b);
+  border: 1.5px solid var(--bd-b) !important;
+  background: var(--navy-l) !important;
+}
+
 
 /* iPad：header 避開系統列（時間、電量、瀏海）*/
 html.is-ipad .header {
