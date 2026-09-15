@@ -1963,7 +1963,7 @@ function renderPersonChips(c){
     return 0;
   });
   return '<div style="display:flex;flex-direction:column;gap:3px;">'+chipMembers.map(m=>{
-    var goldStyle = (m.name==='所長督辦') ? ' style="color:var(--gold);border-color:var(--gold)"' : '';
+    var goldStyle = (m.name==='所長督辦') ? ' style="color:#5FC98E;border-color:#5FC98E"' : '';
     return `<span class="pchip"${goldStyle}>${m.name}</span>`;
   }).join('')+'</div>';
 }
