@@ -899,8 +899,8 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
       <div class="stats-row" id="statsRow"></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
+          <thead id="caseHead">
+            <tr id="caseHeadRow">
               <th id="checkboxHeaderCell" class="checkbox-col" style="width:36px;display:none">&nbsp;</th>
               <th style="width:180px">案件名稱</th>
               <th style="width:90px">法院／檢察署</th>
@@ -997,6 +997,22 @@ let trashedCases = [];
 let statusFilter = null; // null = all, 'urgent'/'progress'/'done' = filtered
 let typeFilter = null; // null = all, 'litigation'/'nonlitigation'/'counsel' = filtered
 
+// ── 營運經理備忘錄：固定六個標籤（第二步才用來篩選；基礎版先定義好顏色與名稱）──
+const MEMO_TAGS = [
+  {key:'seo',    label:'SEO',    color:'#7BA6D3'},
+  {key:'video',  label:'短影音', color:'#E8955A'},
+  {key:'system', label:'系統',   color:'#9B7FE8'},
+  {key:'finance',label:'財務',   color:'#E67C73'},
+  {key:'hr',     label:'人資',   color:'#40A297'},
+  {key:'other',  label:'其他',   color:'#F7C948'}
+];
+let memoTagFilter = null; // 標籤篩選（第二步啟用；基礎版先保留變數）
+// 判斷目前是否在「營運經理」頁面
+function isOpsManagerView(){
+  var m = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
+  return !!(m && m.name==='營運經理');
+}
+
 // ── Load all data from Supabase ──
 function mapCaseRow(row){
   return {
@@ -1016,6 +1032,7 @@ function mapCaseRow(row){
     fax: row.fax || '',
     caseType: row.case_type || 'litigation',
     personIds: row.personids || [],
+    isMemo: row.is_memo || false,
     created_at: row.created_at,
     deleted_at: row.deleted_at || null
   };
@@ -1097,7 +1114,8 @@ function dbSaveCase(caseObj, callback){
     admin_deadline: caseObj.adminDeadline || null,
     fax: caseObj.fax || '',
     case_type: caseObj.caseType || 'litigation',
-    personids: caseObj.personIds || []
+    personids: caseObj.personIds || [],
+    is_memo: caseObj.isMemo || false
   };
   var isNew = !caseObj.id || caseObj.id.startsWith('tmp_');
   if(isNew){
@@ -1229,7 +1247,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 // ── Sidebar ──
 function renderSidebar(){
-  const total=cases.length;
+  const total=cases.filter(c=>!c.isMemo).length;
   document.getElementById('allCount').textContent=total;
   const items=document.getElementById('memberItems');
   const divider=document.getElementById('memberDivider');
@@ -1237,7 +1255,7 @@ function renderSidebar(){
   const addBtn=document.getElementById('addMemberBtn');
   if(addBtn) addBtn.style.display='inline-flex';
   items.innerHTML=members.map(m=>{
-    const cnt=cases.filter(c=>(c.personIds||[]).includes(m.id)).length;
+    const cnt=cases.filter(c=>!c.isMemo && (c.personIds||[]).includes(m.id)).length;
     const isActive=m.id===currentMemberId;
     return `<button class="tn-btn tn-member${isActive?' active':''}"
       draggable="true"
@@ -1262,6 +1280,7 @@ function selectAll(){
   currentMemberId=null;
   typeFilter=null;      // 清除類型篩選
   statusFilter=null;    // 清除狀態篩選
+  memoTagFilter=null;   // 清除備忘錄標籤篩選
   var searchEl=document.getElementById('searchInput');
   if(searchEl) searchEl.value='';  // 清除搜尋
   renderSidebar(); renderCases();
@@ -1270,6 +1289,7 @@ function selectMember(id){
   currentMemberId=id;
   const m=members.find(x=>x.id===id);
   document.getElementById('viewTitle').textContent=m.name;
+  memoTagFilter=null;   // 切換人員時重置備忘錄標籤篩選
   commitActiveCell();
   renderSidebar(); renderCases();
 }
@@ -1438,6 +1458,12 @@ function closeCalendar(){
 }
 function clearDate(){
   if(!calTarget) return;
+  if(calTarget.memo){
+    document.getElementById('moDeadline').value='';
+    document.getElementById('moDeadlineLabel').textContent='未選擇';
+    document.getElementById('moDeadlineLabel').style.color='var(--tm)';
+    closeCalendar(); return;
+  }
   if(calTarget.modal){
     const fieldId=calTarget.field==='court'?'cCourt':'cDeadline';
     const labelId=calTarget.field==='court'?'cCourtLabel':'cDeadlineLabel';
@@ -1468,7 +1494,9 @@ function renderCalendar(){
   const today=new Date(); today.setHours(0,0,0,0);
   let selected='';
   if(calTarget){
-    if(calTarget.modal){
+    if(calTarget.memo){
+      selected=document.getElementById('moDeadline')?document.getElementById('moDeadline').value||'':'';
+    } else if(calTarget.modal){
       const fieldId=calTarget.field==='court'?'cCourt':'cDeadline';
       selected=document.getElementById(fieldId)?document.getElementById(fieldId).value||'':'';
     } else {
@@ -1494,6 +1522,13 @@ function renderCalendar(){
 }
 function pickDate(dtStr){
   if(!calTarget) return;
+  if(calTarget.memo){
+    document.getElementById('moDeadline').value=dtStr;
+    var pm=dtStr.split('-');
+    document.getElementById('moDeadlineLabel').textContent=pm[0]+'/'+pm[1]+'/'+pm[2];
+    document.getElementById('moDeadlineLabel').style.color='var(--t1)';
+    closeCalendar(); return;
+  }
   if(calTarget.modal){
     const fieldId=calTarget.field==='court'?'cCourt':'cDeadline';
     const labelId=calTarget.field==='court'?'cCourtLabel':'cDeadlineLabel';
@@ -1632,7 +1667,8 @@ function addNewCase(){
   document.getElementById('cName').focus();
 }
 function deleteRow(caseId){
-  if(!confirm('確定刪除此案件？（可在垃圾桶復原）')) return;
+  var noun = isOpsManagerView() ? '此待辦事項' : '此案件';
+  if(!confirm('確定刪除'+noun+'？（可在垃圾桶復原）')) return;
   dbDeleteCase(caseId);
 }
 
@@ -1699,13 +1735,19 @@ function getMemberName(id){
 
 function renderCases(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
-  // 判斷目前選的負責人是不是「小秘書」
+  // 判斷目前選的負責人
   var currentMember = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
+  // ── 營運經理備忘錄：走完全不同的渲染路徑 ──
+  if(currentMember && currentMember.name==='營運經理'){
+    renderMemoView(q, currentMember);
+    return;
+  }
+  ensureCaseHead(); // 從備忘錄切回時還原案件表頭
   var isSecretary = currentMember && currentMember.name==='小秘書';
   let data;
   if(isSecretary){
-    // 小秘書專屬：篩選「行政事項」或「行政截止日」任一有填的案件
-    data = cases.filter(c=>(c.adminNote && c.adminNote.trim()!=='') || (c.adminDeadline && c.adminDeadline.trim()!==''));
+    // 小秘書專屬：篩選「行政事項」或「行政截止日」任一有填的案件（排除備忘錄）
+    data = cases.filter(c=>!c.isMemo && ((c.adminNote && c.adminNote.trim()!=='') || (c.adminDeadline && c.adminDeadline.trim()!=='')));
     // 照行政截止日排序（愈早愈前面，沒填的排最後）
     data.sort(function(a,b){
       var da = a.adminDeadline||'', db = b.adminDeadline||'';
@@ -1715,9 +1757,9 @@ function renderCases(){
       return da < db ? -1 : (da > db ? 1 : 0);
     });
   } else if(currentMemberId){
-    data = cases.filter(c=>(c.personIds||[]).includes(currentMemberId));
+    data = cases.filter(c=>!c.isMemo && (c.personIds||[]).includes(currentMemberId));
   } else {
-    data = cases.slice();
+    data = cases.filter(c=>!c.isMemo);
   }
   if(q) data=data.filter(c=>{
     // 全域搜尋：涵蓋所有欄位，但排除負責人名字
@@ -1836,6 +1878,152 @@ function renderCases(){
   updateSelectedCountLabel();
 }
 
+// ══════════════════════════════════════════════════════════════
+// 營運經理備忘錄（基礎版：無標籤欄，標籤篩選格先保留但不作動）
+// ══════════════════════════════════════════════════════════════
+// 記住原本案件表頭，切回律師/所長時還原
+var _ORIG_CASE_HEAD_HTML = null;
+function ensureCaseHead(){
+  var thead = document.getElementById('caseHead');
+  if(!thead) return;
+  if(_ORIG_CASE_HEAD_HTML && thead.getAttribute('data-mode')==='memo'){
+    thead.innerHTML = _ORIG_CASE_HEAD_HTML;
+    thead.setAttribute('data-mode','case');
+  }
+}
+function setMemoHead(){
+  var thead = document.getElementById('caseHead');
+  if(!thead) return;
+  if(_ORIG_CASE_HEAD_HTML === null){
+    _ORIG_CASE_HEAD_HTML = thead.innerHTML; // 第一次進備忘錄前先存下案件表頭
+  }
+  thead.setAttribute('data-mode','memo');
+  thead.innerHTML =
+    '<tr>' +
+      '<th id="memoCheckboxHeaderCell" class="checkbox-col" style="width:36px;'+(selectMode?'':'display:none')+'">&nbsp;</th>' +
+      '<th style="width:300px">待辦事項</th>' +
+      '<th style="width:120px;text-align:center">截止日</th>' +
+      '<th>詳細說明</th>' +
+      '<th style="width:44px"></th>' +
+    '</tr>';
+}
+
+function renderMemoView(q, currentMember){
+  setMemoHead();
+  // 只取備忘錄
+  var data = cases.filter(c=>c.isMemo);
+  // 搜尋：待辦事項 + 詳細說明（疊加）
+  if(q) data = data.filter(function(c){
+    return (c.name||'').toLowerCase().includes(q) || (c.desc||'').toLowerCase().includes(q);
+  });
+  // 排序：照截止日（早的在上，沒填的排最後）
+  data.sort(function(a,b){
+    var da=a.deadline||'', db=b.deadline||'';
+    if(!da && !db) return 0;
+    if(!da) return 1;
+    if(!db) return -1;
+    return da < db ? -1 : (da > db ? 1 : 0);
+  });
+
+  // ── 動態標題：營運經理 · 待辦事項 ──
+  var viewTitleEl = document.getElementById('viewTitle');
+  if(viewTitleEl) viewTitleEl.textContent = currentMember.name + ' · 待辦事項';
+
+  // ── 兩排 8 格：上排=新增待辦事項按鈕 + 3標籤；下排=全部待辦事項 + 3標籤 ──
+  var tagCell = function(t){
+    var active = (memoTagFilter===t.key);
+    return '<div class="stat-box stat-clickable'+(active?' stat-active':'')+'" onclick="setMemoTagFilter(\''+t.key+'\')" '+
+      'style="display:flex;align-items:center;justify-content:center">' +
+      '<span style="font-size:14px;font-weight:700;color:'+t.color+'">'+t.label+'</span></div>';
+  };
+  // 上排：新增按鈕 + SEO/短影音/系統
+  document.getElementById('typeStatsRow').innerHTML =
+    '<div class="stat-box" style="display:flex;align-items:center;justify-content:center">' +
+      '<button class="tn-btn tn-add" onclick="addNewMemo()"><i class="ti ti-plus"></i> 新增待辦事項</button></div>' +
+    tagCell(MEMO_TAGS[0]) + tagCell(MEMO_TAGS[1]) + tagCell(MEMO_TAGS[2]);
+  // 下排：全部待辦事項 + 財務/人資/其他
+  var allActive = (memoTagFilter===null);
+  document.getElementById('statsRow').innerHTML =
+    '<div class="stat-box stat-clickable'+(allActive?' stat-active':'')+'" onclick="setMemoTagFilter(null)" ' +
+      'style="display:flex;align-items:center;justify-content:center">' +
+      '<span style="font-size:14px;font-weight:700;color:var(--t1)">全部待辦事項</span></div>' +
+    tagCell(MEMO_TAGS[3]) + tagCell(MEMO_TAGS[4]) + tagCell(MEMO_TAGS[5]);
+
+  // ── 列表 ──
+  var body = document.getElementById('caseBody');
+  if(!data.length){
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:44px;color:var(--tm)">'+(q?'沒有符合的待辦事項':'點擊「新增待辦事項」開始')+'</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map(function(c){
+    var trClass = (selectMode?'select-row':'') + (selectedCaseIds.includes(c.id)?' row-selected':'');
+    return '<tr class="'+trClass+'" data-case-id="'+c.id+'">' +
+      '<td class="checkbox-col tr1-cell" style="'+(selectMode?'':'display:none')+'">' +
+        '<div class="cw" style="justify-content:center"><input type="checkbox" class="case-checkbox" data-id="'+c.id+'" '+(selectedCaseIds.includes(c.id)?'checked':'')+' style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;pointer-events:none"></div></td>' +
+      '<td class="ed" data-id="'+c.id+'" data-field="name" onclick="activateTextCell(this,\''+c.id+'\',\'name\')" style="width:300px">' +
+        '<div class="cw"><span class="ct'+(!c.name?' cm':'')+'" style="white-space:pre-wrap;word-break:break-word;line-height:1.4">'+(c.name?(window.innerWidth<=1024?c.name.replace(/[\n\r]+/g,' ').trim():c.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—')+'</span></div></td>' +
+      '<td class="date-cell ed" onclick="openCalendar(event,\''+c.id+'\',\'deadline\')">' +
+        '<div class="cw" style="justify-content:center"><span class="'+dlClsSmart(c.deadline)+'" style="'+dateStyle(c.deadline)+'">'+(fmtDateSmart(c.deadline)||'<span class="cm">—</span>')+'</span></div></td>' +
+      '<td class="ed desc-cell" data-id="'+c.id+'" data-field="desc" onclick="handleDescCellClick(event,this,\''+c.id+'\')">' +
+        '<div class="cw"><span class="ct'+(!c.desc?' cm':'')+'" style="white-space:pre-wrap;line-height:1.5;word-break:break-word">'+(c.desc?c.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—')+'</span></div></td>' +
+      '<td style="text-align:center">' +
+        '<button class="del-btn" onclick="deleteRow(\''+c.id+'\')" title="刪除"><i class="ti ti-trash"></i></button></td>' +
+    '</tr>';
+  }).join('');
+  attachRowSelectListeners();
+  updateSelectedCountLabel();
+}
+
+// 標籤篩選（第二步才真正生效；基礎版：點了只切換高亮，列表暫不篩）
+function setMemoTagFilter(key){
+  memoTagFilter = key;
+  renderCases();
+}
+
+// 新增待辦事項（照搬新增案件視窗，簡化為三欄）
+function addNewMemo(){
+  editingCaseId=null;
+  document.getElementById('memoModalTitle').textContent='新增待辦事項';
+  document.getElementById('moName').value='';
+  document.getElementById('moDeadline').value='';
+  document.getElementById('moDeadlineLabel').textContent='未選擇';
+  document.getElementById('moDeadlineLabel').style.color='var(--tm)';
+  document.getElementById('moDesc').value='';
+  document.getElementById('memoModal').classList.add('show');
+  document.getElementById('moName').focus();
+}
+function closeMemoModal(){ document.getElementById('memoModal').classList.remove('show'); }
+function saveMemoModal(){
+  var name=document.getElementById('moName').value.trim();
+  if(!name){ alert('請填寫待辦事項'); return; }
+  var obj={
+    name:name,
+    isMemo:true,
+    status:'progress',
+    deadline:document.getElementById('moDeadline').value||null,
+    desc:document.getElementById('moDesc').value||''
+  };
+  closeMemoModal();
+  var newMemo=Object.assign({id:'tmp_'+uid()}, obj);
+  dbSaveCase(newMemo);
+}
+// 備忘錄視窗的日曆（借用 calPopup，target 用 memo 標記）
+function openMemoModalCalendar(e){
+  e.stopPropagation();
+  calTarget={memo:true};
+  var val=document.getElementById('moDeadline').value;
+  var now=val?new Date(val):new Date();
+  calYear=now.getFullYear(); calMonth=now.getMonth();
+  renderCalendar();
+  var pop=document.getElementById('calPopup');
+  pop.style.display='block';
+  var rect=e.currentTarget.getBoundingClientRect();
+  var left=rect.left, top=rect.bottom+4;
+  if(left+310>window.innerWidth) left=window.innerWidth-314;
+  if(top+320>window.innerHeight) top=rect.top-320;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+}
+
 // ── Directly attach click listeners to each row using CAPTURE phase ──
 // Capture phase fires BEFORE any child's own onclick (status popup, calendar, edit cell, etc.)
 // so we can intercept the click before it reaches those handlers, regardless of pointer-events CSS support.
@@ -1867,7 +2055,8 @@ function toggleSelectMode(){
   selectedCaseIds = [];
   document.getElementById('selectModeBtn').classList.toggle('active', selectMode);
   document.getElementById('multiSelectBar').style.display = selectMode ? 'flex' : 'none';
-  document.getElementById('checkboxHeaderCell').style.display = selectMode ? '' : 'none';
+  var cbHead = document.getElementById('checkboxHeaderCell');
+  if(cbHead) cbHead.style.display = selectMode ? '' : 'none'; // 備忘錄表頭時此元素不存在，renderCases 會重建
   document.body.classList.toggle('select-mode-on', selectMode);
   renderCases();
 }
@@ -1892,8 +2081,9 @@ function updateSelectedCountLabel(){
 }
 
 function deleteSelectedCases(){
-  if(!selectedCaseIds.length){ alert('請先選擇要刪除的案件'); return; }
-  if(!confirm('確定要刪除這 '+selectedCaseIds.length+' 筆案件嗎？（可在垃圾桶復原）')) return;
+  var noun = isOpsManagerView() ? '待辦事項' : '案件';
+  if(!selectedCaseIds.length){ alert('請先選擇要刪除的'+noun); return; }
+  if(!confirm('確定要刪除這 '+selectedCaseIds.length+' 筆'+noun+'嗎？（可在垃圾桶復原）')) return;
   dbDeleteCasesMulti(selectedCaseIds.slice());
   selectedCaseIds = [];
   toggleSelectMode();
@@ -1909,11 +2099,19 @@ function closeTrash(){
 }
 function renderTrash(){
   var body = document.getElementById('trashBody');
-  if(!trashedCases.length){
+  var inMemo = isOpsManagerView();
+  // 垃圾桶內容依當前頁面切換：營運經理→只看備忘錄垃圾桶；其他→只看案件垃圾桶
+  var list = trashedCases.filter(function(c){ return inMemo ? c.isMemo : !c.isMemo; });
+  // 更新標題與說明文字
+  var titleEl = document.getElementById('trashModalTitle');
+  if(titleEl) titleEl.innerHTML = '<i class="ti ti-trash" style="margin-right:6px"></i>' + (inMemo?'垃圾桶（待辦事項）':'垃圾桶');
+  var noteEl = document.getElementById('trashNote');
+  if(noteEl) noteEl.textContent = (inMemo?'已刪除的待辦事項':'已刪除的案件') + '會保留 30 天，期滿後自動永久刪除';
+  if(!list.length){
     body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--tm);font-size:13px">垃圾桶是空的</div>';
     return;
   }
-  body.innerHTML = trashedCases.map(function(c){
+  body.innerHTML = list.map(function(c){
     var deletedDate = c.deleted_at ? new Date(c.deleted_at) : null;
     var daysLeft = deletedDate ? Math.max(0, 30 - Math.floor((Date.now()-deletedDate.getTime())/86400000)) : 30;
     return '<div class="trash-item">' +
@@ -1943,7 +2141,7 @@ function openDescEditor(caseId, field){
   descEditorCaseId = caseId;
   descEditorField = field || 'desc';
   document.getElementById('descEditorCaseName').textContent = c.name || '未命名案件';
-  document.querySelector('.desc-editor-title').textContent = (descEditorField==='adminNote') ? '行政事項' : '進行概述';
+  document.querySelector('.desc-editor-title').textContent = (descEditorField==='adminNote') ? '行政事項' : (c.isMemo ? '詳細說明' : '進行概述');
   var ta = document.getElementById('descEditorTextarea');
   ta.value = c[descEditorField] || '';
   var overlay = document.getElementById('descEditorOverlay');
@@ -2275,6 +2473,32 @@ function dragEnd(e){
   </div>
 </div>
 
+<!-- Memo Modal (營運經理備忘錄：新增待辦事項) -->
+<div class="overlay" id="memoModal">
+  <div class="modal" style="width:460px">
+    <div class="mhead">
+      <span class="mtitle" id="memoModalTitle">新增待辦事項</span>
+      <button class="mclose" onclick="closeMemoModal()">×</button>
+    </div>
+    <div class="mbody">
+      <div class="fg"><label class="flabel">待辦事項</label><input class="finput" id="moName"></div>
+      <div class="fg">
+        <label class="flabel">截止日</label>
+        <div class="date-trigger" id="moDeadlineDisplay" onclick="openMemoModalCalendar(event)" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;color:var(--t1);">
+          <span id="moDeadlineLabel" style="color:var(--tm)">未選擇</span>
+          <i class="ti ti-calendar" style="font-size:14px;color:var(--tm)"></i>
+        </div>
+        <input type="hidden" id="moDeadline">
+      </div>
+      <div class="fg"><label class="flabel">詳細說明</label><textarea class="finput" id="moDesc" style="resize:vertical;min-height:64px;line-height:1.5"></textarea></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="closeMemoModal()">取消</button>
+      <button class="btn bp2" onclick="saveMemoModal()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- Person popup (inline assign) -->
 <div id="personPopupBackdrop" style="display:none;position:fixed;inset:0;z-index:499;background:transparent;" onclick="document.getElementById('personPopup').style.display='none';this.style.display='none';"></div>
 <div id="personPopup" class="status-popup" style="display:none;min-width:180px;">
@@ -2307,11 +2531,11 @@ function dragEnd(e){
 <div class="overlay" id="trashModal">
   <div class="modal" style="width:520px;max-width:92vw;">
     <div class="mhead">
-      <span class="mtitle"><i class="ti ti-trash" style="margin-right:6px"></i>垃圾桶</span>
+      <span class="mtitle" id="trashModalTitle"><i class="ti ti-trash" style="margin-right:6px"></i>垃圾桶</span>
       <button class="mclose" onclick="closeTrash()">×</button>
     </div>
     <div class="mbody" style="max-height:60vh;overflow-y:auto;padding:12px 16px;">
-      <div style="font-size:11px;color:var(--tm);padding:0 4px 8px;">已刪除的案件會保留 30 天，期滿後自動永久刪除</div>
+      <div id="trashNote" style="font-size:11px;color:var(--tm);padding:0 4px 8px;">已刪除的案件會保留 30 天，期滿後自動永久刪除</div>
       <div id="trashBody"></div>
     </div>
     <div class="mfoot">
