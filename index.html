@@ -239,10 +239,15 @@ tbody tr:hover .del-btn{opacity:1;}
   .header-center { display: none !important; }
 
   /* ── 頂部功能列 ── */
-  .topnav { height: auto; padding: 8px 14px; gap: 6px; flex-wrap: wrap; }
+  .topnav { height: auto; padding: 8px 14px; gap: 6px; flex-wrap: wrap; overflow-x: visible !important; }
   .tn-btn { font-size: 14px; padding: 6px 12px; }
   .tn-add { font-size: 14px; }
   .m-count { display: none; }
+  /* 人員頁籤：全部展開換行，不橫向捲動（讓 #memberItems 的子項參與 topnav 換行）*/
+  #memberItems { display: contents !important; }
+  .tn-member { flex-shrink: 0; }
+  /* 手機不顯示「新增人員」加號 */
+  #addMemberBtn { display: none !important; }
 
   /* ── 工具列 ── */
   .toolbar { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
@@ -431,6 +436,47 @@ tbody tr:hover .del-btn{opacity:1;}
   }
   /* 行政事項：完整文字區 */
   tbody td:nth-child(9) .ct {
+    white-space: pre-wrap; line-height: 1.6; font-size: 16px; color: var(--t2);
+    overflow-wrap: break-word; word-break: break-word; max-width: 100% !important;
+  }
+
+  /* ═══ 營運經理備忘錄：手機卡片（照律師卡片樣式，只有 4 樣：標題→截止日→標籤→詳細說明）═══ */
+  body.memo-mode tbody tr {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "mname   mname"
+      "mddl    mddl"
+      "mtags   mtags"
+      "mdesc   mdesc" !important;
+  }
+  /* 欄位定位：備忘錄表格 td 順序＝checkbox(1) 待辦(2) 標籤(3) 截止日(4) 詳細(5) 刪除(6) */
+  body.memo-mode tbody td:nth-child(2) { grid-area: mname; text-align: center; }
+  body.memo-mode tbody td:nth-child(3) { grid-area: mtags; }
+  body.memo-mode tbody td:nth-child(4) { grid-area: mddl; text-align: center; }
+  body.memo-mode tbody td:nth-child(5) { grid-area: mdesc; }
+  body.memo-mode tbody td:nth-child(6) { display: none !important; } /* 紅色垃圾桶不顯示 */
+  /* 待辦事項：置中大字、無標籤 */
+  body.memo-mode tbody td:nth-child(2) .cw { text-align: center; }
+  body.memo-mode tbody td:nth-child(2) .ct {
+    font-size: 18px !important; font-weight: 700; color: var(--t1);
+    white-space: normal; line-height: 1.35; overflow-wrap: break-word; word-break: break-word;
+  }
+  body.memo-mode tbody td:nth-child(2)::before { display: none !important; content: "" !important; }
+  /* 截止日：置中，標籤「截止日」 */
+  body.memo-mode tbody td:nth-child(4) .cw { justify-content: center; }
+  body.memo-mode tbody td:nth-child(4)::before { content: "截止日"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; text-align: center; }
+  /* 標籤：置左、chip 橫向排列，標籤「標籤」 */
+  body.memo-mode tbody td:nth-child(3)::before { content: "標籤"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; }
+  body.memo-mode tbody td:nth-child(3) .cw > div {
+    flex-direction: row !important; flex-wrap: wrap; gap: 5px !important;
+  }
+  /* 詳細說明：完整文字、上分隔線，標籤「詳細說明」 */
+  body.memo-mode tbody td:nth-child(5) {
+    margin-top: 3px; padding-top: 10px !important;
+    border-top: 1px solid rgba(201,168,76,0.12);
+  }
+  body.memo-mode tbody td:nth-child(5)::before { content: "詳細說明"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; }
+  body.memo-mode tbody td:nth-child(5) .ct {
     white-space: pre-wrap; line-height: 1.6; font-size: 16px; color: var(--t2);
     overflow-wrap: break-word; word-break: break-word; max-width: 100% !important;
   }
@@ -1771,6 +1817,7 @@ function renderCases(){
     return;
   }
   ensureCaseHead(); // 從備忘錄切回時還原案件表頭
+  document.body.classList.remove('memo-mode');
   var isSecretary = currentMember && currentMember.name==='小秘書';
   let data;
   if(isSecretary){
@@ -1938,6 +1985,7 @@ function setMemoHead(){
 }
 
 function renderMemoView(q, currentMember){
+  document.body.classList.add('memo-mode');
   setMemoHead();
   // 只取備忘錄
   var data = cases.filter(c=>c.isMemo);
