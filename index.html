@@ -1005,6 +1005,7 @@ function mapCaseRow(row){
     adminNote: row.admin_note || '',
     adminDeadline: row.admin_deadline || '',
     fax: row.fax || '',
+    caseType: row.case_type || 'litigation',
     personIds: row.personids || [],
     created_at: row.created_at,
     deleted_at: row.deleted_at || null
@@ -1086,6 +1087,7 @@ function dbSaveCase(caseObj, callback){
     admin_note: caseObj.adminNote || '',
     admin_deadline: caseObj.adminDeadline || null,
     fax: caseObj.fax || '',
+    case_type: caseObj.caseType || 'litigation',
     personids: caseObj.personIds || []
   };
   var isNew = !caseObj.id || caseObj.id.startsWith('tmp_');
@@ -1541,6 +1543,7 @@ function addNewCase(){
   document.getElementById('caseModalTitle').textContent='新增案件';
   document.getElementById('cName').value='';
   document.getElementById('cStatus').value='urgent';
+  document.getElementById('cCaseType').value='';
   document.getElementById('cDeadline').value='';
   document.getElementById('cCourt').value='';
   document.getElementById('cCourtLabel').textContent='未選擇';
@@ -1681,8 +1684,8 @@ function renderCases(){
       '<div class="cw" style="justify-content:center"><input type="checkbox" class="case-checkbox" data-id="'+c.id+'" '+(selectedCaseIds.includes(c.id)?'checked':'')+' style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;pointer-events:none"></div></td>'+`
     <td class="ed" data-id="${c.id}" data-field="name" onclick="activateTextCell(this,'${c.id}','name')" style="width:180px">
       <div class="cw"><span class="ct${!c.name?' cm':''}" style="white-space:pre-wrap;word-break:break-word;line-height:1.4">${c.name?(window.innerWidth<=1024?c.name.replace(/[\n\r]+/g,' ').trim():c.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—'}</span></div></td>
-    <td class="ed" data-id="${c.id}" data-field="courthouse" onclick="activateTextCell(this,'${c.id}','courthouse')" style="width:90px;max-width:90px">
-      <div class="cw"><span class="ct${!c.courthouse?' cm':''}" style="white-space:pre-wrap;word-break:break-word">${c.courthouse?(window.innerWidth<=1024?c.courthouse.replace(/[\n\r]+/g,' ').trim():c.courthouse).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—'}</span></div></td>
+    <td class="${c.caseType==='litigation'||!c.caseType?'ed':''}" data-id="${c.id}" data-field="courthouse" ${c.caseType==='litigation'||!c.caseType?`onclick="activateTextCell(this,'${c.id}','courthouse')"`:''} style="width:90px;max-width:90px">
+      ${renderCourthouseCell(c)}</td>
     <td class="badge-cell" onclick="openStatusPopup(event,'${c.id}')">
       <div class="cw" style="justify-content:center">${badge(c.status)}</div></td>
     <td class="person-cell" onclick="openPersonPopup(event,'${c.id}')">
@@ -1901,6 +1904,19 @@ function handlePhoneCell(e, caseId){
 }
 
 // ── Person helpers ──
+function renderCourthouseCell(c){
+  // 非訟、法律顧問：在法院欄顯示類型（不同顏色，不可編輯）
+  if(c.caseType==='nonlitigation'){
+    return '<div class="cw"><span class="ct" style="color:#6BB6E8;font-weight:600">非訟</span></div>';
+  }
+  if(c.caseType==='counsel'){
+    return '<div class="cw"><span class="ct" style="color:#5FC98E;font-weight:600">法律顧問</span></div>';
+  }
+  // 訴訟：照舊顯示法院名稱（可編輯）
+  var text = c.courthouse ? (window.innerWidth<=1024 ? c.courthouse.replace(/[\n\r]+/g,' ').trim() : c.courthouse).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '—';
+  return '<div class="cw"><span class="ct'+(!c.courthouse?' cm':'')+'" style="white-space:pre-wrap;word-break:break-word">'+text+'</span></div>';
+}
+
 function renderPersonChips(c){
   const ids=c.personIds||(c.personId?[c.personId]:[]);
   if(!ids.length) return '<span class="cm">—</span>';
@@ -2006,6 +2022,7 @@ function saveCaseModal(){
   var selectedIds=Array.from(document.querySelectorAll('.person-cb:checked')).map(function(el){return el.dataset.id;});
   var obj={
     name:name,
+    caseType:document.getElementById('cCaseType').value||'litigation',
     status:document.getElementById('cStatus').value,
     court:document.getElementById('cCourt').value||null,
     deadline:document.getElementById('cDeadline').value||null,
@@ -2080,6 +2097,14 @@ function dragEnd(e){
     </div>
     <div class="mbody">
       <div class="fg"><label class="flabel">案件名稱</label><input class="finput" id="cName"></div>
+      <div class="fg"><label class="flabel">類型</label>
+        <select class="fselect" id="cCaseType">
+          <option value="" disabled selected>請選擇類型</option>
+          <option value="litigation">訴訟</option>
+          <option value="nonlitigation">非訟</option>
+          <option value="counsel">法律顧問</option>
+        </select>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="fg"><label class="flabel">狀態</label>
           <select class="fselect" id="cStatus">
