@@ -952,6 +952,13 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
   <div class="sp-item" onclick="setStatus('done')"><span class="badge bd2">已完成</span></div>
 </div>
 
+<div id="typePopupBackdrop" style="display:none;position:fixed;inset:0;z-index:498;background:transparent;" onclick="document.getElementById('typePopup').style.display='none';this.style.display='none';"></div>
+<div id="typePopup" class="status-popup" style="display:none;">
+  <div class="sp-item" onclick="setCaseType('litigation')"><span style="color:#E8E2D0;font-weight:600;font-size:13px">訴訟</span></div>
+  <div class="sp-item" onclick="setCaseType('nonlitigation')"><span style="color:#6BB6E8;font-weight:600;font-size:13px">非訟</span></div>
+  <div class="sp-item" onclick="setCaseType('counsel')"><span style="color:#5FC98E;font-weight:600;font-size:13px">法律顧問</span></div>
+</div>
+
 <!-- Calendar popup -->
 <div id="calPopup" class="cal-popup" style="display:none;">
   <div class="cal-head">
@@ -1346,6 +1353,51 @@ function setStatus(s){
   }
 }
 
+// ── 類型切換 ──
+let typeTarget=null;
+function openTypePopup(e, caseId){
+  e.stopPropagation();
+  commitActiveCell();
+  typeTarget={caseId};
+  const pop=document.getElementById('typePopup');
+  pop.style.display='block';
+  if(isTabletOrMobileMode()){ document.getElementById('typePopupBackdrop').style.display='block'; }
+  const rect=e.currentTarget.getBoundingClientRect();
+  const popW=160, popH=130;
+  let left=rect.left;
+  let top=rect.bottom+4;
+  if(left+popW>window.innerWidth) left=window.innerWidth-popW-8;
+  if(top+popH>window.innerHeight) top=rect.top-popH-4;
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+}
+function setCaseType(t){
+  if(!typeTarget) return;
+  var caseObj=cases.find(function(x){return x.id===typeTarget.caseId;});
+  document.getElementById('typePopup').style.display='none';
+  var bd=document.getElementById('typePopupBackdrop'); if(bd) bd.style.display='none';
+  if(caseObj){
+    // 改成非訟/法律顧問時，清掉法院名稱
+    if(t==='nonlitigation'||t==='counsel'){
+      caseObj.courthouse='';
+    }
+    caseObj.caseType=t;
+    renderCases();
+    dbSaveCase(caseObj);
+  }
+}
+function handleCourthouseCellClick(e, td, caseId){
+  var caseObj=cases.find(function(x){return x.id===caseId;});
+  if(!caseObj) return;
+  // 非訟/法律顧問：點了跳類型選單
+  if(caseObj.caseType==='nonlitigation'||caseObj.caseType==='counsel'){
+    openTypePopup(e, caseId);
+  } else {
+    // 訴訟：照舊編輯法院名稱
+    activateTextCell(td, caseId, 'courthouse');
+  }
+}
+
 // ── Calendar ──
 function openCalendar(e, caseId, field){
   e.stopPropagation();
@@ -1467,6 +1519,18 @@ function commitActiveCell(){
   var caseObj=cases.find(function(x){return x.id===caseId;});
   var changed=false;
   if(caseObj){
+    // 法院欄自動偵測：打「非訟」或「法律顧問」（完全相符）自動轉類型
+    if(field==='courthouse'){
+      var v=(input.value||'').trim();
+      if(v==='非訟'){
+        caseObj.caseType='nonlitigation'; caseObj.courthouse='';
+        activeCell=null; renderCases(); dbSaveCase(caseObj); return;
+      }
+      if(v==='法律顧問'){
+        caseObj.caseType='counsel'; caseObj.courthouse='';
+        activeCell=null; renderCases(); dbSaveCase(caseObj); return;
+      }
+    }
     if(caseObj[field]!==input.value){
       caseObj[field]=input.value;
       dbSaveCase(caseObj);
@@ -1738,7 +1802,7 @@ function renderCases(){
       '<div class="cw" style="justify-content:center"><input type="checkbox" class="case-checkbox" data-id="'+c.id+'" '+(selectedCaseIds.includes(c.id)?'checked':'')+' style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;pointer-events:none"></div></td>'+`
     <td class="ed" data-id="${c.id}" data-field="name" onclick="activateTextCell(this,'${c.id}','name')" style="width:180px">
       <div class="cw"><span class="ct${!c.name?' cm':''}" style="white-space:pre-wrap;word-break:break-word;line-height:1.4">${c.name?(window.innerWidth<=1024?c.name.replace(/[\n\r]+/g,' ').trim():c.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—'}</span></div></td>
-    <td class="${c.caseType==='litigation'||!c.caseType?'ed':''}" data-id="${c.id}" data-field="courthouse" ${c.caseType==='litigation'||!c.caseType?`onclick="activateTextCell(this,'${c.id}','courthouse')"`:''} style="width:90px;max-width:90px">
+    <td class="ed" data-id="${c.id}" data-field="courthouse" onclick="handleCourthouseCellClick(event,this,'${c.id}')" style="width:90px;max-width:90px">
       ${renderCourthouseCell(c)}</td>
     <td class="badge-cell" onclick="openStatusPopup(event,'${c.id}')">
       <div class="cw" style="justify-content:center">${badge(c.status)}</div></td>
