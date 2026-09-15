@@ -895,6 +895,7 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
         <button class="btn bda" onclick="deleteSelectedCases()" style="font-size:12px;padding:5px 12px"><i class="ti ti-trash"></i> 刪除已選</button>
         <button class="btn bg" onclick="toggleSelectMode()" style="font-size:12px;padding:5px 12px;margin-left:auto">取消</button>
       </div>
+      <div class="stats-row" id="typeStatsRow"></div>
       <div class="stats-row" id="statsRow"></div>
       <div class="table-wrap">
         <table>
@@ -987,6 +988,7 @@ let selectedCaseIds = [];
 let selectMode = false;
 let trashedCases = [];
 let statusFilter = null; // null = all, 'urgent'/'progress'/'done' = filtered
+let typeFilter = null; // null = all, 'litigation'/'nonlitigation'/'counsel' = filtered
 
 // ── Load all data from Supabase ──
 function mapCaseRow(row){
@@ -1543,7 +1545,7 @@ function addNewCase(){
   document.getElementById('caseModalTitle').textContent='新增案件';
   document.getElementById('cName').value='';
   document.getElementById('cStatus').value='urgent';
-  document.getElementById('cCaseType').value='';
+  document.getElementById('cCaseType').value='litigation';
   document.getElementById('cDeadline').value='';
   document.getElementById('cCourt').value='';
   document.getElementById('cCourtLabel').textContent='未選擇';
@@ -1650,13 +1652,42 @@ function renderCases(){
       return (v||'').toString().toLowerCase().includes(q);
     });
   });
+  // ── 類型統計（在套用類型篩選前算，但要先套用狀態篩選以外的搜尋）──
+  // 類型數字：不受類型篩選影響，但受狀態篩選影響（疊加邏輯）
+  var dataForTypeCount = statusFilter ? data.filter(c=>c.status===statusFilter) : data;
+  const typeAll = dataForTypeCount.length;
+  const typeLit = dataForTypeCount.filter(c=>(c.caseType||'litigation')==='litigation').length;
+  const typeNon = dataForTypeCount.filter(c=>c.caseType==='nonlitigation').length;
+  const typeCounsel = dataForTypeCount.filter(c=>c.caseType==='counsel').length;
+  // 套用類型篩選
+  if(typeFilter) data=data.filter(c=>(c.caseType||'litigation')===typeFilter);
+  // 狀態數字：受類型篩選影響（疊加邏輯）
   const totalCount=data.length;
   const urgent=data.filter(c=>c.status==='urgent').length;
   const prog=data.filter(c=>c.status==='progress').length;
   const done=data.filter(c=>c.status==='done').length;
+  // 套用狀態篩選
   if(statusFilter) data=data.filter(c=>c.status===statusFilter);
+
+  // ── 動態標題 ──
+  var typeLabel = typeFilter==='litigation'?'訴訟':(typeFilter==='nonlitigation'?'非訟':(typeFilter==='counsel'?'法律顧問':''));
+  var statusLabel = statusFilter==='urgent'?'優先處理':(statusFilter==='progress'?'處理中':(statusFilter==='done'?'已完成':''));
+  var titleParts = [];
+  if(typeLabel) titleParts.push(typeLabel);
+  if(statusLabel) titleParts.push(statusLabel);
+  var viewTitleEl = document.getElementById('viewTitle');
+  if(viewTitleEl) viewTitleEl.textContent = titleParts.length ? titleParts.join(' · ') : '全部案件';
+
+  // ── 類型統計列 ──
+  document.getElementById('typeStatsRow').innerHTML=`
+    <div class="stat-box stat-clickable${typeFilter===null?' stat-active':''}" onclick="setTypeFilter(null)"><div class="stat-num">${typeAll}</div><div class="stat-lbl">全部類型</div></div>
+    <div class="stat-box stat-clickable${typeFilter==='litigation'?' stat-active':''}" onclick="setTypeFilter('litigation')"><div class="stat-num">${typeLit}</div><div class="stat-lbl">訴訟</div></div>
+    <div class="stat-box stat-clickable${typeFilter==='nonlitigation'?' stat-active':''}" onclick="setTypeFilter('nonlitigation')"><div class="stat-num" style="color:#6BB6E8">${typeNon}</div><div class="stat-lbl">非訟</div></div>
+    <div class="stat-box stat-clickable${typeFilter==='counsel'?' stat-active':''}" onclick="setTypeFilter('counsel')"><div class="stat-num" style="color:#5FC98E">${typeCounsel}</div><div class="stat-lbl">法律顧問</div></div>
+  `;
+
   document.getElementById('statsRow').innerHTML=`
-    <div class="stat-box stat-clickable${statusFilter===null?' stat-active':''}" onclick="setStatusFilter(null)"><div class="stat-num">${totalCount}</div><div class="stat-lbl">全部案件</div></div>
+    <div class="stat-box stat-clickable${statusFilter===null?' stat-active':''}" onclick="setStatusFilter(null)"><div class="stat-num">${totalCount}</div><div class="stat-lbl">全部狀態</div></div>
     <div class="stat-box stat-clickable${statusFilter==='urgent'?' stat-active':''}" onclick="setStatusFilter('urgent')"><div class="stat-num" style="color:#FF7B7A">${urgent}</div><div class="stat-lbl">優先處理</div></div>
     <div class="stat-box stat-clickable${statusFilter==='progress'?' stat-active':''}" onclick="setStatusFilter('progress')"><div class="stat-num" style="color:#F5B84A">${prog}</div><div class="stat-lbl">處理中</div></div>
     <div class="stat-box stat-clickable${statusFilter==='done'?' stat-active':''}" onclick="setStatusFilter('done')"><div class="stat-num" style="color:#2ECFA0">${done}</div><div class="stat-lbl">已完成</div></div>
@@ -1737,6 +1768,10 @@ function attachRowSelectListeners(){
 // ── Multi-select mode ──
 function setStatusFilter(status){
   statusFilter = status;
+  renderCases();
+}
+function setTypeFilter(type){
+  typeFilter = type;
   renderCases();
 }
 
@@ -2097,21 +2132,22 @@ function dragEnd(e){
     </div>
     <div class="mbody">
       <div class="fg"><label class="flabel">案件名稱</label><input class="finput" id="cName"></div>
-      <div class="fg"><label class="flabel">類型</label>
-        <select class="fselect" id="cCaseType">
-          <option value="" disabled selected>請選擇類型</option>
-          <option value="litigation">訴訟</option>
-          <option value="nonlitigation">非訟</option>
-          <option value="counsel">法律顧問</option>
-        </select>
-      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="fg"><label class="flabel">狀態</label>
-          <select class="fselect" id="cStatus">
-            <option value="urgent">優先處理</option>
-            <option value="progress">處理中</option>
-            <option value="done">已完成</option>
-          </select>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="fg"><label class="flabel">類型</label>
+            <select class="fselect" id="cCaseType">
+              <option value="litigation" selected>訴訟</option>
+              <option value="nonlitigation">非訟</option>
+              <option value="counsel">法律顧問</option>
+            </select>
+          </div>
+          <div class="fg"><label class="flabel">狀態</label>
+            <select class="fselect" id="cStatus">
+              <option value="urgent">優先處理</option>
+              <option value="progress">處理中</option>
+              <option value="done">已完成</option>
+            </select>
+          </div>
         </div>
         <div class="fg"><label class="flabel">負責人（可複選）</label>
           <div id="personCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;"></div>
