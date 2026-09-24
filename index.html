@@ -74,8 +74,7 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 
 /* Stats */
 .stats-row{display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;position:sticky;top:0;z-index:15;background:#1A2535;}
-/* 零用金：隱藏多選鈕（記帳不需要批次刪除）、第二排 stats-row 收合、餘額橫幅不要 sticky 疊字 */
-body.petty-mode #selectModeBtn{display:none !important;}
+/* 零用金：第二排 stats-row 收合、餘額橫幅不要 sticky 疊字 */
 body.petty-mode #statsRow{display:none !important;}
 body.petty-mode #typeStatsRow{position:static;}
 .stat-box{flex:1;padding:10px 18px;border-right:1px solid var(--bd);}
@@ -500,33 +499,38 @@ tbody tr:hover .del-btn{opacity:1;}
   }
 
   /* ═══ 零用金：手機卡片（金額大字置中、類別置中放大；下面日期+概述小字）═══
-     欄位順序：日期(1) 類別(2) 金額(3) 概述(4) 刪除(5) */
+     欄位順序：checkbox(1) 日期(2) 類別(3) 金額(4) 概述(5) 刪除(6) */
   body.petty-mode tbody tr {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "pamt   pamt"
       "pcat   pcat"
-      "pdate  pnote"
-      "pdel   pdel" !important;
+      "pdate  pnote" !important;
     align-items: center;
     row-gap: 12px !important;
   }
-  body.petty-mode tbody td:nth-child(3) { grid-area: pamt; }   /* 金額 */
-  body.petty-mode tbody td:nth-child(2) { grid-area: pcat; }   /* 類別 */
-  body.petty-mode tbody td:nth-child(1) { grid-area: pdate; }  /* 日期 */
-  body.petty-mode tbody td:nth-child(4) { grid-area: pnote; }  /* 概述 */
-  body.petty-mode tbody td:nth-child(5) { grid-area: pdel; text-align: center !important; padding-top: 8px !important; } /* 刪除 */
+  body.petty-mode tbody td:nth-child(1) { grid-area: pchk; display: none; }  /* checkbox 手機不獨立顯示 */
+  body.petty-mode.select-mode-on tbody td:nth-child(1),
+  body.petty-mode tbody td:nth-child(1) { display: none !important; }
+  body.petty-mode tbody td:nth-child(4) { grid-area: pamt; }   /* 金額 */
+  body.petty-mode tbody td:nth-child(3) { grid-area: pcat; }   /* 類別 */
+  body.petty-mode tbody td:nth-child(2) { grid-area: pdate; }  /* 日期 */
+  body.petty-mode tbody td:nth-child(5) { grid-area: pnote; }  /* 概述 */
+  body.petty-mode tbody td:nth-child(6) { display: none !important; } /* 刪除鈕手機不顯示（改用多選）*/
   body.petty-mode tbody td::before { display: none !important; content: "" !important; }
   /* 金額：大字置中 */
-  body.petty-mode tbody td:nth-child(3) { text-align: center !important; font-size: 30px !important; font-weight: 700 !important; }
+  body.petty-mode tbody td:nth-child(4) { text-align: center !important; font-size: 30px !important; font-weight: 700 !important; }
   /* 類別：置中、放大 chip */
-  body.petty-mode tbody td:nth-child(2) { text-align: center !important; }
-  body.petty-mode tbody td:nth-child(2) > div { justify-content: center !important; }
-  body.petty-mode tbody td:nth-child(2) .tagchip { font-size: 16px !important; padding: 5px 16px !important; font-weight: 700 !important; }
-  body.petty-mode tbody td:nth-child(2) span[style*="撥款"], body.petty-mode tbody td:nth-child(2) > span { font-size: 16px !important; font-weight: 700 !important; }
+  body.petty-mode tbody td:nth-child(3) { text-align: center !important; }
+  body.petty-mode tbody td:nth-child(3) > div { justify-content: center !important; }
+  body.petty-mode tbody td:nth-child(3) .tagchip { font-size: 16px !important; padding: 5px 16px !important; font-weight: 700 !important; }
+  body.petty-mode tbody td:nth-child(3) > span { font-size: 16px !important; font-weight: 700 !important; }
   /* 日期＋概述：小字，上有分隔線 */
-  body.petty-mode tbody td:nth-child(1) { color: var(--tm) !important; font-size: 13px !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
-  body.petty-mode tbody td:nth-child(4) { color: var(--t2) !important; font-size: 13px !important; text-align: right !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
+  body.petty-mode tbody td:nth-child(2) { color: var(--tm) !important; font-size: 13px !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
+  body.petty-mode tbody td:nth-child(5) { color: var(--t2) !important; font-size: 13px !important; text-align: right !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
+  /* 多選模式：手機顯示 checkbox 在卡片左上 */
+  body.petty-mode.select-mode-on tbody tr { position: relative; }
+  body.petty-mode.select-mode-on tbody td:nth-child(1) { display: flex !important; position: absolute; top: 10px; left: 10px; grid-area: unset; width: auto; padding: 0; }
 
   /* Modal / Calendar / Popups */
   .modal { width: 95vw !important; max-height: 85vh; overflow-y: auto; }
@@ -2412,6 +2416,7 @@ function setPettyHead(){
   thead.setAttribute('data-mode','petty');
   thead.innerHTML =
     '<tr>' +
+      '<th id="pettyCheckboxHeaderCell" class="checkbox-col" style="width:36px;'+(selectMode?'':'display:none')+'">&nbsp;</th>' +
       '<th style="width:110px">日期</th>' +
       '<th style="width:200px">類別</th>' +
       '<th style="width:120px;text-align:right">金額</th>' +
@@ -2466,17 +2471,54 @@ function renderPettyView(q){
     var amtColor = isInc ? '#5FC98E' : '#E67C73';
     var amtText = (isInc?'+':'-') + fmtMoney(e.amount).replace('$','$');
     var dd = (e.entryDate||'').slice(5).replace('-','/'); // mm/dd
-    var catCell = isInc
-      ? '<td>'+renderPettyCatChips(e)+'</td>'  // 撥款：不能編類別
+    var sel = selectMode;
+    var checked = selectedCaseIds.includes(e.id);
+    var trClass = (sel?'select-row':'') + (checked?' row-selected':'');
+    // 多選模式時欄位不觸發編輯（改為整列勾選）
+    var dateCell = sel
+      ? '<td class="date-cell" style="color:var(--t2)">'+(dd||'—')+'</td>'
+      : '<td class="ed date-cell" onclick="openPettyRowCalendar(event,\''+e.id+'\')" style="cursor:pointer;color:var(--t2)">'+(dd||'—')+'</td>';
+    var catCell = (isInc || sel)
+      ? '<td>'+renderPettyCatChips(e)+'</td>'
       : '<td class="ed" data-petty-cat-cell onclick="openPettyCatPopup(event,\''+e.id+'\')" style="cursor:pointer">'+renderPettyCatChips(e)+'</td>';
-    return '<tr'+(isInc?' style="background:rgba(95,201,142,0.04)"':'')+' data-petty-id="'+e.id+'">' +
-      '<td class="ed date-cell" onclick="openPettyRowCalendar(event,\''+e.id+'\')" style="cursor:pointer;color:var(--t2)">'+(dd||'—')+'</td>' +
-      catCell +
-      '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'amount\')" style="text-align:right;color:'+amtColor+';font-weight:700;cursor:pointer">'+amtText+'</td>' +
-      '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'note\')" style="color:var(--t2);white-space:pre-wrap;word-break:break-word;cursor:pointer">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>' +
+    var amtCell = sel
+      ? '<td style="text-align:right;color:'+amtColor+';font-weight:700">'+amtText+'</td>'
+      : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'amount\')" style="text-align:right;color:'+amtColor+';font-weight:700;cursor:pointer">'+amtText+'</td>';
+    var noteCell = sel
+      ? '<td style="color:var(--t2);white-space:pre-wrap;word-break:break-word">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>'
+      : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'note\')" style="color:var(--t2);white-space:pre-wrap;word-break:break-word;cursor:pointer">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>';
+    return '<tr class="'+trClass+'"'+(isInc?' style="background:rgba(95,201,142,0.04)"':'')+' data-petty-id="'+e.id+'">' +
+      '<td class="checkbox-col tr1-cell" style="'+(sel?'':'display:none')+'">' +
+        '<div class="cw" style="justify-content:center"><input type="checkbox" class="petty-checkbox" data-id="'+e.id+'" '+(checked?'checked':'')+' style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;pointer-events:none"></div></td>' +
+      dateCell + catCell + amtCell + noteCell +
       '<td style="text-align:center"><button class="del-btn" onclick="deletePetty(\''+e.id+'\')" title="刪除"><i class="ti ti-trash"></i></button></td>' +
     '</tr>';
   }).join('');
+  attachPettyRowSelectListeners();
+  updateSelectedCountLabel();
+}
+// 多選模式：整列點擊＝勾選
+function attachPettyRowSelectListeners(){
+  if(!selectMode) return;
+  var rows = document.querySelectorAll('#caseBody tr[data-petty-id]');
+  rows.forEach(function(row){
+    row.addEventListener('click', function(ev){
+      ev.stopPropagation(); ev.preventDefault();
+      var id = row.getAttribute('data-petty-id');
+      if(id) togglePettySelection(id);
+    }, true);
+  });
+}
+function togglePettySelection(id){
+  var idx = selectedCaseIds.indexOf(id);
+  if(idx>=0){ selectedCaseIds.splice(idx,1); } else { selectedCaseIds.push(id); }
+  updateSelectedCountLabel();
+  var cb = document.querySelector('.petty-checkbox[data-id="'+id+'"]');
+  if(cb){
+    cb.checked = selectedCaseIds.includes(id);
+    var row = cb.closest('tr');
+    if(row) row.classList.toggle('row-selected', selectedCaseIds.includes(id));
+  }
 }
 
 // ── 撥款視窗 ──
@@ -2795,6 +2837,18 @@ function updateSelectedCountLabel(){
 }
 
 function deleteSelectedCases(){
+  if(pettyView){
+    if(!selectedCaseIds.length){ alert('請先選擇要刪除的帳目'); return; }
+    if(!confirm('確定要刪除這 '+selectedCaseIds.length+' 筆帳目嗎？（可在垃圾桶復原）')) return;
+    var ids = selectedCaseIds.slice();
+    _SB.from('petty_cash').update({deleted_at: new Date().toISOString()}).in('id', ids).then(function(r){
+      if(r.error){ console.error('Delete petty multi error:', r.error); alert('刪除失敗：'+r.error.message); return; }
+      loadData();
+    });
+    selectedCaseIds = [];
+    toggleSelectMode();
+    return;
+  }
   var noun = isOpsManagerView() ? '待辦事項' : '案件';
   if(!selectedCaseIds.length){ alert('請先選擇要刪除的'+noun); return; }
   if(!confirm('確定要刪除這 '+selectedCaseIds.length+' 筆'+noun+'嗎？（可在垃圾桶復原）')) return;
