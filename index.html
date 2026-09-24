@@ -2453,10 +2453,10 @@ function setPettyHead(){
   thead.innerHTML =
     '<tr>' +
       '<th id="pettyCheckboxHeaderCell" class="checkbox-col" style="width:36px;'+(selectMode?'':'display:none')+'">&nbsp;</th>' +
-      '<th style="width:110px">日期</th>' +
-      '<th style="width:200px">類別</th>' +
-      '<th style="width:120px;text-align:right">金額</th>' +
-      '<th>概述</th>' +
+      '<th style="width:130px;text-align:center">日期</th>' +
+      '<th style="width:190px;text-align:center">類別</th>' +
+      '<th style="width:150px;text-align:center">金額</th>' +
+      '<th style="padding-left:28px">概述</th>' +
       '<th style="width:44px"></th>' +
     '</tr>';
 }
@@ -2511,18 +2511,22 @@ function renderPettyView(q){
     var checked = selectedCaseIds.includes(e.id);
     var trClass = (sel?'select-row':'') + (checked?' row-selected':'');
     // 多選模式時欄位不觸發編輯（改為整列勾選）
+    var dateStyle = 'width:130px;text-align:center;color:var(--t2)';
     var dateCell = sel
-      ? '<td class="date-cell" style="color:var(--t2)">'+(dd||'—')+'</td>'
-      : '<td class="ed date-cell" onclick="openPettyRowCalendar(event,\''+e.id+'\')" style="cursor:pointer;color:var(--t2)">'+(dd||'—')+'</td>';
+      ? '<td class="date-cell" style="'+dateStyle+'">'+(dd||'—')+'</td>'
+      : '<td class="ed date-cell" onclick="openPettyRowCalendar(event,\''+e.id+'\')" style="cursor:pointer;'+dateStyle+'">'+(dd||'—')+'</td>';
+    var catInner = '<div class="cw" style="justify-content:center">'+renderPettyCatChips(e)+'</div>';
     var catCell = (isInc || sel)
-      ? '<td>'+renderPettyCatChips(e)+'</td>'
-      : '<td class="ed" data-petty-cat-cell onclick="openPettyCatPopup(event,\''+e.id+'\')" style="cursor:pointer">'+renderPettyCatChips(e)+'</td>';
+      ? '<td style="width:190px;text-align:center">'+catInner+'</td>'
+      : '<td class="ed" data-petty-cat-cell onclick="openPettyCatPopup(event,\''+e.id+'\')" style="cursor:pointer;width:190px;text-align:center">'+catInner+'</td>';
+    var amtStyle = 'width:150px;text-align:right;color:'+amtColor+';font-weight:700';
     var amtCell = sel
-      ? '<td style="text-align:right;color:'+amtColor+';font-weight:700">'+amtText+'</td>'
-      : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'amount\')" style="text-align:right;color:'+amtColor+';font-weight:700;cursor:pointer">'+amtText+'</td>';
+      ? '<td style="'+amtStyle+'">'+amtText+'</td>'
+      : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'amount\')" style="cursor:pointer;'+amtStyle+'">'+amtText+'</td>';
+    var noteStyle = 'padding-left:28px;color:var(--t2);white-space:pre-wrap;word-break:break-word';
     var noteCell = sel
-      ? '<td style="color:var(--t2);white-space:pre-wrap;word-break:break-word">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>'
-      : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'note\')" style="color:var(--t2);white-space:pre-wrap;word-break:break-word;cursor:pointer">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>';
+      ? '<td style="'+noteStyle+'">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>'
+      : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'note\')" style="cursor:pointer;'+noteStyle+'">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>';
     return '<tr class="'+trClass+'"'+(isInc?' style="background:rgba(95,201,142,0.04)"':'')+' data-petty-id="'+e.id+'">' +
       '<td class="checkbox-col tr1-cell" style="'+(sel?'':'display:none')+'">' +
         '<div class="cw" style="justify-content:center"><input type="checkbox" class="petty-checkbox" data-id="'+e.id+'" '+(checked?'checked':'')+' style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;pointer-events:none"></div></td>' +
