@@ -939,7 +939,8 @@ html.is-ipad #memberItems .m-edit, html.is-ipad .topnav .m-edit { display: none 
    背景不變暗——遮罩維持透明，只負責點旁邊關閉 */
 html.is-ipad .status-popup,
 html.is-ipad #personPopup,
-html.is-ipad #memoTagPopup {
+html.is-ipad #memoTagPopup,
+html.is-ipad #pettyCatPopup {
   position: fixed !important;
   top: 50% !important; left: 50% !important;
   bottom: auto !important; right: auto !important;
@@ -951,6 +952,37 @@ html.is-ipad #memoTagPopup {
   border: 1.5px solid var(--bd-b) !important;
   background: var(--navy-l) !important;
 }
+
+/* ═══ iPad：零用金明細卡片 → 橫向一排（日期左、類別、概述、金額右）═══
+   欄位順序：checkbox(1) 日期(2) 類別(3) 金額(4) 概述(5) 刪除(6) */
+html.is-ipad body.petty-mode tbody tr:has(td.checkbox-col) {
+  grid-template-columns: 110px 190px 1fr 150px !important;
+  grid-template-areas: "pdate pcat pnote pamt" !important;
+  align-items: center !important;
+  row-gap: 0 !important;
+  column-gap: 20px !important;
+  padding: 18px 24px !important;
+}
+html.is-ipad body.petty-mode tbody td:nth-child(1) { display: none; } /* checkbox 平常隱藏 */
+html.is-ipad body.petty-mode tbody td:nth-child(2) { grid-area: pdate; color: var(--t2); font-size: 15px; }
+html.is-ipad body.petty-mode tbody td:nth-child(3) { grid-area: pcat; }
+html.is-ipad body.petty-mode tbody td:nth-child(3) .cw > div { flex-direction: row !important; flex-wrap: wrap; gap: 5px !important; }
+html.is-ipad body.petty-mode tbody td:nth-child(3) .tagchip { font-size: 14px; padding: 4px 13px; font-weight: 700; }
+html.is-ipad body.petty-mode tbody td:nth-child(3) > span { font-size: 15px; font-weight: 700; }
+html.is-ipad body.petty-mode tbody td:nth-child(4) { grid-area: pamt; text-align: right; font-size: 22px; font-weight: 700; }
+html.is-ipad body.petty-mode tbody td:nth-child(5) { grid-area: pnote; color: var(--t2); font-size: 15px; white-space: normal; word-break: break-word; }
+html.is-ipad body.petty-mode tbody td:nth-child(5)::before { display: none !important; content: "" !important; }
+html.is-ipad body.petty-mode tbody td:nth-child(2)::before,
+html.is-ipad body.petty-mode tbody td:nth-child(3)::before,
+html.is-ipad body.petty-mode tbody td:nth-child(4)::before { display: none !important; content: "" !important; }
+html.is-ipad body.petty-mode tbody td:nth-child(6) { display: none !important; } /* 刪除鈕不顯示，改用多選 */
+/* 多選模式：勾選框浮右上 */
+html.is-ipad body.petty-mode.select-mode-on tbody tr { position: relative; }
+html.is-ipad body.petty-mode.select-mode-on tbody td:nth-child(1) {
+  display: block !important; position: absolute; top: 50%; right: 16px; transform: translateY(-50%);
+  grid-area: unset !important; width: auto; padding: 0; border: none; z-index: 2;
+}
+
 
 
 /* iPad：header 避開系統列（時間、電量、瀏海）*/
