@@ -506,7 +506,8 @@ tbody tr:hover .del-btn{opacity:1;}
     grid-template-areas:
       "pamt   pamt"
       "pcat   pcat"
-      "pdate  pnote" !important;
+      "pdate  pnote"
+      "pdel   pdel" !important;
     align-items: center;
     row-gap: 12px !important;
   }
@@ -514,7 +515,7 @@ tbody tr:hover .del-btn{opacity:1;}
   body.petty-mode tbody td:nth-child(2) { grid-area: pcat; }   /* 類別 */
   body.petty-mode tbody td:nth-child(1) { grid-area: pdate; }  /* 日期 */
   body.petty-mode tbody td:nth-child(4) { grid-area: pnote; }  /* 概述 */
-  body.petty-mode tbody td:nth-child(5) { display: none !important; } /* 刪除鈕手機不顯示 */
+  body.petty-mode tbody td:nth-child(5) { grid-area: pdel; text-align: center !important; padding-top: 8px !important; } /* 刪除 */
   body.petty-mode tbody td::before { display: none !important; content: "" !important; }
   /* 金額：大字置中 */
   body.petty-mode tbody td:nth-child(3) { text-align: center !important; font-size: 30px !important; font-weight: 700 !important; }
@@ -1718,6 +1719,7 @@ function closeCalendar(){
 }
 function clearDate(){
   if(!calTarget) return;
+  if(calTarget.pettyRow){ closeCalendar(); return; } // 帳目日期必填，不清空
   if(calTarget.petty){
     setPettyModalDate(todayStr());
     closeCalendar(); return;
@@ -1758,7 +1760,10 @@ function renderCalendar(){
   const today=new Date(); today.setHours(0,0,0,0);
   let selected='';
   if(calTarget){
-    if(calTarget.petty){
+    if(calTarget.pettyRow){
+      var pe=pettyCash.find(function(x){return x.id===calTarget.id;});
+      selected=pe?pe.entryDate||'':'';
+    } else if(calTarget.petty){
       selected=document.getElementById('pcDate')?document.getElementById('pcDate').value||'':'';
     } else if(calTarget.memo){
       selected=document.getElementById('moDeadline')?document.getElementById('moDeadline').value||'':'';
@@ -1788,6 +1793,10 @@ function renderCalendar(){
 }
 function pickDate(dtStr){
   if(!calTarget) return;
+  if(calTarget.pettyRow){
+    dbUpdatePettyField(calTarget.id, {entry_date: dtStr});
+    closeCalendar(); return;
+  }
   if(calTarget.petty){
     setPettyModalDate(dtStr);
     closeCalendar(); return;
@@ -2457,11 +2466,14 @@ function renderPettyView(q){
     var amtColor = isInc ? '#5FC98E' : '#E67C73';
     var amtText = (isInc?'+':'-') + fmtMoney(e.amount).replace('$','$');
     var dd = (e.entryDate||'').slice(5).replace('-','/'); // mm/dd
-    return '<tr'+(isInc?' style="background:rgba(95,201,142,0.04)"':'')+'>' +
-      '<td style="color:var(--t2)">'+(dd||'—')+'</td>' +
-      '<td>'+renderPettyCatChips(e)+'</td>' +
-      '<td style="text-align:right;color:'+amtColor+';font-weight:700">'+amtText+'</td>' +
-      '<td style="color:var(--t2);white-space:pre-wrap;word-break:break-word">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>' +
+    var catCell = isInc
+      ? '<td>'+renderPettyCatChips(e)+'</td>'  // 撥款：不能編類別
+      : '<td class="ed" data-petty-cat-cell onclick="openPettyCatPopup(event,\''+e.id+'\')" style="cursor:pointer">'+renderPettyCatChips(e)+'</td>';
+    return '<tr'+(isInc?' style="background:rgba(95,201,142,0.04)"':'')+' data-petty-id="'+e.id+'">' +
+      '<td class="ed date-cell" onclick="openPettyRowCalendar(event,\''+e.id+'\')" style="cursor:pointer;color:var(--t2)">'+(dd||'—')+'</td>' +
+      catCell +
+      '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'amount\')" style="text-align:right;color:'+amtColor+';font-weight:700;cursor:pointer">'+amtText+'</td>' +
+      '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'note\')" style="color:var(--t2);white-space:pre-wrap;word-break:break-word;cursor:pointer">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>' +
       '<td style="text-align:center"><button class="del-btn" onclick="deletePetty(\''+e.id+'\')" title="刪除"><i class="ti ti-trash"></i></button></td>' +
     '</tr>';
   }).join('');
@@ -2569,6 +2581,135 @@ function dbSavePetty(obj){
     loadData();
   });
 }
+// 更新單一欄位（就地編輯用）
+function dbUpdatePettyField(id, patch){
+  _SB.from('petty_cash').update(patch).eq('id', id).then(function(r){
+    if(r.error){ console.error('Update petty error:', r.error); alert('更新失敗：'+r.error.message); return; }
+    loadData();
+  });
+}
+
+// ── 零用金就地編輯：金額 / 概述（文字欄）──
+var pettyActiveCell = null;
+function commitPettyCell(){
+  if(!pettyActiveCell) return;
+  var pc=pettyActiveCell; pettyActiveCell=null;
+  var e=pettyCash.find(function(x){return x.id===pc.id;});
+  if(!e){ return; }
+  if(pc.field==='amount'){
+    var digits=(pc.input.value||'').replace(/[^\d]/g,'');
+    var val=digits?Number(digits):0;
+    if(val>0 && val!==e.amount){ dbUpdatePettyField(pc.id, {amount: val}); return; }
+  } else if(pc.field==='note'){
+    var v=pc.input.value;
+    if(v!==e.note){ dbUpdatePettyField(pc.id, {note: v}); return; }
+  }
+  renderCases(); // 沒變也重繪回原樣
+}
+function activatePettyTextCell(td, id, field){
+  if(pettyActiveCell && pettyActiveCell.td===td) return;
+  commitPettyCell();
+  var e=pettyCash.find(function(x){return x.id===id;});
+  if(!e) return;
+  td.innerHTML='';
+  var input=document.createElement('input');
+  input.type='text';
+  input.className='ii';
+  input.setAttribute('autocomplete','off');
+  input.setAttribute('autocorrect','off');
+  input.setAttribute('spellcheck','false');
+  if(field==='amount'){
+    input.setAttribute('inputmode','numeric');
+    input.value = e.amount ? Number(e.amount).toLocaleString('en-US') : '';
+    input.style.textAlign='right';
+    input.addEventListener('input',function(){ formatPettyAmount(input); });
+  } else {
+    input.value = e.note || '';
+  }
+  input.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'){ pettyActiveCell=null; renderCases(); }
+    else if(ev.key==='Enter'){ ev.preventDefault(); commitPettyCell(); }
+  });
+  input.addEventListener('blur',function(){
+    setTimeout(function(){ if(pettyActiveCell&&pettyActiveCell.input===input){ commitPettyCell(); } },200);
+  });
+  pettyActiveCell={td,id,field,input};
+  td.appendChild(input);
+  input.focus();
+  if(field==='amount'){ input.select(); }
+}
+
+// ── 零用金就地編輯：日期（點格子跳日曆）──
+function openPettyRowCalendar(e, id){
+  e.stopPropagation();
+  commitPettyCell();
+  calTarget={pettyRow:true, id:id};
+  var ent=pettyCash.find(function(x){return x.id===id;});
+  var val=ent?ent.entryDate:'';
+  var now=val?new Date(val):new Date();
+  calYear=now.getFullYear(); calMonth=now.getMonth();
+  renderCalendar();
+  var pop=document.getElementById('calPopup');
+  pop.style.display='block';
+  var rect=e.currentTarget.getBoundingClientRect();
+  var left=rect.left, top=rect.bottom+4;
+  if(left+310>window.innerWidth) left=window.innerWidth-314;
+  if(top+320>window.innerHeight) top=rect.top-320;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+}
+
+// ── 零用金就地編輯：類別（點格子跳可複選 popup，照搬備忘錄標籤）──
+var pettyCatPopupId = null;
+function closePettyCatPopup(){
+  var mp=document.getElementById('pettyCatPopup'); if(mp) mp.style.display='none';
+  var bd=document.getElementById('pettyCatPopupBackdrop'); if(bd) bd.style.display='none';
+  pettyCatPopupId=null;
+}
+function openPettyCatPopup(e, id){
+  e.stopPropagation();
+  commitPettyCell();
+  var ent=pettyCash.find(function(x){return x.id===id;});
+  if(!ent || ent.entryType==='income') return; // 撥款沒有類別
+  pettyCatPopupId=id;
+  if(isTabletOrMobileMode()){ document.getElementById('pettyCatPopupBackdrop').style.display='block'; }
+  var selected=ent.categories||[];
+  var list=document.getElementById('pettyCatPopupList');
+  list.innerHTML=PETTY_CATS.map(function(t){
+    var on=selected.includes(t.key);
+    return '<div class="sp-item" onclick="togglePettyRowCat(\''+t.key+'\')" id="pcp_'+t.key+'">' +
+      '<div class="pp-box" style="width:16px;height:16px;border-radius:4px;border:1.5px solid var(--bd-b);display:flex;align-items:center;justify-content:center;flex-shrink:0;'+(on?'background:'+t.color+';border-color:'+t.color:'')+'">' +
+        '<i class="ti ti-check pcp-check" style="font-size:11px;color:var(--navy);'+(on?'':'display:none;')+'"></i>' +
+      '</div>' +
+      '<span style="color:'+t.color+';font-weight:600">'+t.label+'</span>' +
+    '</div>';
+  }).join('');
+  var pop=document.getElementById('pettyCatPopup');
+  pop.style.display='block';
+  var rect=e.currentTarget.getBoundingClientRect();
+  var left=rect.left, top=rect.bottom+4;
+  if(left+200>window.innerWidth) left=window.innerWidth-204;
+  if(top+260>window.innerHeight) top=rect.top-260;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+}
+function togglePettyRowCat(key){
+  if(!pettyCatPopupId) return;
+  var ent=pettyCash.find(function(x){return x.id===pettyCatPopupId;});
+  if(!ent) return;
+  if(!ent.categories) ent.categories=[];
+  var i=ent.categories.indexOf(key);
+  if(i>=0) ent.categories.splice(i,1); else ent.categories.push(key);
+  dbUpdatePettyField(ent.id, {categories: ent.categories});
+  // 即時更新勾勾
+  var t=pettyCatByKey(key);
+  var row=document.getElementById('pcp_'+key);
+  if(row && t){
+    var on=ent.categories.includes(key);
+    var box=row.querySelector('.pp-box'); var chk=row.querySelector('.pcp-check');
+    if(box){ box.style.background=on?t.color:''; box.style.borderColor=on?t.color:'var(--bd-b)'; }
+    if(chk){ chk.style.display=on?'':'none'; }
+  }
+}
+
 function deletePetty(id){
   if(!confirm('確定刪除這筆帳目？（可在垃圾桶復原）')) return;
   _SB.from('petty_cash').update({deleted_at: new Date().toISOString()}).eq('id', id).then(function(r){
@@ -2938,6 +3079,18 @@ document.addEventListener('click', e=>{
     memoTagPopupCaseId=null;
   }
 }, true);
+// close petty category popup on outside click
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#pettyCatPopup')&&!e.target.closest('[data-petty-cat-cell]')){
+    var mp=document.getElementById('pettyCatPopup');
+    if(mp && mp.style.display==='block'){
+      mp.style.display='none';
+      var bd=document.getElementById('pettyCatPopupBackdrop');
+      if(bd) bd.style.display='none';
+      pettyCatPopupId=null;
+    }
+  }
+}, true);
 
 // ── Case Modal ──
 function closeCaseModal(){ document.getElementById('caseModal').classList.remove('show'); }
@@ -3155,6 +3308,16 @@ function dragEnd(e){
   <div id="memoTagPopupList"></div>
   <div style="padding:8px 8px 4px;margin-top:4px;border-top:1px solid var(--bd);">
     <button onclick="closeMemoTagPopup()" style="width:100%;background:var(--gold);color:var(--navy);border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">完成</button>
+  </div>
+</div>
+
+<!-- Petty category popup (inline multi-select) -->
+<div id="pettyCatPopupBackdrop" style="display:none;position:fixed;inset:0;z-index:499;background:transparent;" onclick="closePettyCatPopup();"></div>
+<div id="pettyCatPopup" class="status-popup" style="display:none;min-width:180px;">
+  <div style="font-size:10px;color:var(--tm);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.8px">選擇類別</div>
+  <div id="pettyCatPopupList"></div>
+  <div style="padding:8px 8px 4px;margin-top:4px;border-top:1px solid var(--bd);">
+    <button onclick="closePettyCatPopup()" style="width:100%;background:var(--gold);color:var(--navy);border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">完成</button>
   </div>
 </div>
 
