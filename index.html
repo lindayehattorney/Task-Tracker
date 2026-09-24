@@ -74,6 +74,10 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 
 /* Stats */
 .stats-row{display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;position:sticky;top:0;z-index:15;background:#1A2535;}
+/* 零用金：隱藏多選鈕（記帳不需要批次刪除）、第二排 stats-row 收合、餘額橫幅不要 sticky 疊字 */
+body.petty-mode #selectModeBtn{display:none !important;}
+body.petty-mode #statsRow{display:none !important;}
+body.petty-mode #typeStatsRow{position:static;}
 .stat-box{flex:1;padding:10px 18px;border-right:1px solid var(--bd);}
 .stat-clickable{cursor:pointer;transition:background .15s;}
 .stat-clickable:hover{background:rgba(201,168,76,0.06);}
@@ -995,6 +999,9 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
       <i class="ti ti-layout-list" style="font-size:14px"></i> 全部案件
       <span class="m-count" id="allCount">0</span>
     </button>
+    <button class="tn-btn" id="pettyItem" onclick="selectPetty()">
+      <i class="ti ti-wallet" style="font-size:14px"></i> 零用金
+    </button>
     <div class="tn-break" aria-hidden="true"></div>
     <div class="tn-divider" id="memberDivider" style="display:none"></div>
     <div id="memberItems" style="display:flex;align-items:center;gap:4px;"></div>
@@ -1134,6 +1141,63 @@ const MEMO_TAGS = [
   {key:'other',  label:'其他',   color:'#F7C948'}
 ];
 let memoTagFilter = null; // 標籤篩選（一次一個，OR）
+
+// ── 零用金 ──
+let pettyCash = [];        // 零用金帳目
+let pettyView = false;     // 是否在零用金頁面
+let trashedPetty = [];     // 零用金垃圾桶
+let pettyModalCats = [];   // 支出視窗暫存已選類別
+const PETTY_CATS = [
+  {key:'post',    label:'郵務', color:'#7BA6D3'},
+  {key:'express', label:'快遞', color:'#E8955A'},
+  {key:'supply',  label:'耗材', color:'#9B7FE8'},
+  {key:'other',   label:'其他', color:'#F7C948'}
+];
+function pettyCatByKey(k){ return PETTY_CATS.find(t=>t.key===k) || null; }
+// 對應零用金資料列（DB → JS）
+function mapPettyRow(row){
+  return {
+    id: row.id,
+    entryType: row.entry_type,        // 'income' 撥款 / 'expense' 支出
+    amount: Number(row.amount)||0,
+    categories: row.categories || [],
+    note: row.note || '',
+    entryDate: row.entry_date,        // yyyy-mm-dd
+    created_at: row.created_at,
+    deleted_at: row.deleted_at || null
+  };
+}
+// 目前餘額 = 總撥款 - 總支出（只算未刪除的）
+function pettyBalance(){
+  return pettyCash.reduce(function(sum, e){
+    return sum + (e.entryType==='income' ? e.amount : -e.amount);
+  }, 0);
+}
+// 本月撥款 / 本月支出
+function pettyMonthTotals(){
+  var now = new Date();
+  var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var inc=0, exp=0;
+  pettyCash.forEach(function(e){
+    if((e.entryDate||'').slice(0,7)===ym){
+      if(e.entryType==='income') inc+=e.amount; else exp+=e.amount;
+    }
+  });
+  return {inc:inc, exp:exp};
+}
+// 金額格式化（加千分位）
+function fmtMoney(n){ return '$'+Math.round(n).toLocaleString('en-US'); }
+// 渲染一筆支出的類別 chip（各自顏色，橫向）
+function renderPettyCatChips(e){
+  if(e.entryType==='income') return '<span style="font-size:12px;color:#5FC98E;font-weight:600">＋ 撥款</span>';
+  var keys = e.categories || [];
+  if(!keys.length) return '<span class="cm">—</span>';
+  var ordered = PETTY_CATS.filter(t=>keys.includes(t.key));
+  return '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">'+ordered.map(function(t){
+    return '<span class="tagchip" style="color:'+t.color+';background:'+hexToRgba(t.color,0.12)+';border:1px solid '+hexToRgba(t.color,0.30)+'">'+t.label+'</span>';
+  }).join('')+'</div>';
+}
+
 // 判斷目前是否在「營運經理」頁面
 function isOpsManagerView(){
   var m = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
@@ -1187,13 +1251,16 @@ function mapCaseRow(row){
 function loadData(){
   return Promise.all([
     _SB.from('members').select('*').is('deleted_at', null).order('sort_order'),
-    _SB.from('cases').select('*').is('deleted_at', null).order('created_at', {ascending: false})
+    _SB.from('cases').select('*').is('deleted_at', null).order('created_at', {ascending: false}),
+    _SB.from('petty_cash').select('*').is('deleted_at', null).order('entry_date', {ascending: false}).order('created_at', {ascending: false})
   ]).then(function(results){
-    var mr = results[0], cr = results[1];
+    var mr = results[0], cr = results[1], pr = results[2];
     if(mr.error){ console.error('Load members error:', mr.error); return; }
     if(cr.error){ console.error('Load cases error:', cr.error); return; }
+    if(pr && pr.error){ console.error('Load petty error:', pr.error); }
     members = mr.data || [];
     cases = (cr.data || []).map(mapCaseRow);
+    pettyCash = (pr && pr.data ? pr.data : []).map(mapPettyRow);
     selectedCaseIds = [];
     renderSidebar();
     renderCases();
@@ -1325,6 +1392,7 @@ function setupRealtime(){
   _realtimeChannel = _SB.channel('db-changes')
     .on('postgres_changes', {event: '*', schema: 'public', table: 'members'}, function(){ loadData(); })
     .on('postgres_changes', {event: '*', schema: 'public', table: 'cases'}, function(){ loadData(); })
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'petty_cash'}, function(){ loadData(); })
     .subscribe(function(status){
       console.log('Realtime:', status);
     });
@@ -1420,11 +1488,14 @@ function renderSidebar(){
     </button>`;
   }).join('');
   const allBtn=document.getElementById('allItem');
-  allBtn.className='tn-btn'+(currentMemberId===null?' active':'');
+  allBtn.className='tn-btn'+((currentMemberId===null && !pettyView)?' active':'');
+  const pettyBtn=document.getElementById('pettyItem');
+  if(pettyBtn) pettyBtn.className='tn-btn'+(pettyView?' active':'');
 }
 
 function selectAll(){
   currentMemberId=null;
+  pettyView=false;      // 離開零用金
   typeFilter=null;      // 清除類型篩選
   statusFilter=null;    // 清除狀態篩選
   memoTagFilter=null;   // 清除備忘錄標籤篩選
@@ -1434,10 +1505,24 @@ function selectAll(){
 }
 function selectMember(id){
   currentMemberId=id;
+  pettyView=false;      // 離開零用金
   const m=members.find(x=>x.id===id);
   document.getElementById('viewTitle').textContent=m.name;
   memoTagFilter=null;   // 切換人員時重置備忘錄標籤篩選
   commitActiveCell();
+  renderSidebar(); renderCases();
+}
+function selectPetty(){
+  currentMemberId=null;
+  pettyView=true;
+  commitActiveCell();
+  var searchEl=document.getElementById('searchInput');
+  if(searchEl) searchEl.value='';
+  // 離開多選模式
+  if(selectMode){ selectMode=false; selectedCaseIds=[];
+    var msb=document.getElementById('multiSelectBar'); if(msb) msb.style.display='none';
+    document.body.classList.remove('select-mode-on');
+  }
   renderSidebar(); renderCases();
 }
 
@@ -1605,6 +1690,10 @@ function closeCalendar(){
 }
 function clearDate(){
   if(!calTarget) return;
+  if(calTarget.petty){
+    setPettyModalDate(todayStr());
+    closeCalendar(); return;
+  }
   if(calTarget.memo){
     document.getElementById('moDeadline').value='';
     document.getElementById('moDeadlineLabel').textContent='未選擇';
@@ -1641,7 +1730,9 @@ function renderCalendar(){
   const today=new Date(); today.setHours(0,0,0,0);
   let selected='';
   if(calTarget){
-    if(calTarget.memo){
+    if(calTarget.petty){
+      selected=document.getElementById('pcDate')?document.getElementById('pcDate').value||'':'';
+    } else if(calTarget.memo){
       selected=document.getElementById('moDeadline')?document.getElementById('moDeadline').value||'':'';
     } else if(calTarget.modal){
       const fieldId=calTarget.field==='court'?'cCourt':'cDeadline';
@@ -1669,6 +1760,10 @@ function renderCalendar(){
 }
 function pickDate(dtStr){
   if(!calTarget) return;
+  if(calTarget.petty){
+    setPettyModalDate(dtStr);
+    closeCalendar(); return;
+  }
   if(calTarget.memo){
     document.getElementById('moDeadline').value=dtStr;
     var pm=dtStr.split('-');
@@ -1882,6 +1977,11 @@ function getMemberName(id){
 
 function renderCases(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  // ── 零用金：完全獨立的渲染路徑 ──
+  if(pettyView){
+    renderPettyView(q);
+    return;
+  }
   // 判斷目前選的負責人
   var currentMember = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
   // ── 營運經理備忘錄：走完全不同的渲染路徑 ──
@@ -1889,8 +1989,9 @@ function renderCases(){
     renderMemoView(q, currentMember);
     return;
   }
-  ensureCaseHead(); // 從備忘錄切回時還原案件表頭
+  ensureCaseHead(); // 從備忘錄/零用金切回時還原案件表頭
   document.body.classList.remove('memo-mode');
+  document.body.classList.remove('petty-mode');
   var isSecretary = currentMember && currentMember.name==='小秘書';
   let data;
   if(isSecretary){
@@ -2034,7 +2135,8 @@ var _ORIG_CASE_HEAD_HTML = null;
 function ensureCaseHead(){
   var thead = document.getElementById('caseHead');
   if(!thead) return;
-  if(_ORIG_CASE_HEAD_HTML && thead.getAttribute('data-mode')==='memo'){
+  var mode = thead.getAttribute('data-mode');
+  if(_ORIG_CASE_HEAD_HTML && (mode==='memo' || mode==='petty')){
     thead.innerHTML = _ORIG_CASE_HEAD_HTML;
     thead.setAttribute('data-mode','case');
   }
@@ -2058,6 +2160,7 @@ function setMemoHead(){
 }
 
 function renderMemoView(q, currentMember){
+  document.body.classList.remove('petty-mode');
   document.body.classList.add('memo-mode');
   setMemoHead();
   // 只取備忘錄
@@ -2262,6 +2365,204 @@ function openMemoModalCalendar(e){
   pop.style.left=left+'px'; pop.style.top=top+'px';
 }
 
+// ══════════════════════════════════════════════════════════════
+// 零用金（petty cash）
+// ══════════════════════════════════════════════════════════════
+function setPettyHead(){
+  var thead = document.getElementById('caseHead');
+  if(!thead) return;
+  if(_ORIG_CASE_HEAD_HTML === null){ _ORIG_CASE_HEAD_HTML = thead.innerHTML; }
+  thead.setAttribute('data-mode','petty');
+  thead.innerHTML =
+    '<tr>' +
+      '<th style="width:110px">日期</th>' +
+      '<th style="width:200px">類別</th>' +
+      '<th style="width:120px;text-align:right">金額</th>' +
+      '<th>概述</th>' +
+      '<th style="width:44px"></th>' +
+    '</tr>';
+}
+
+function renderPettyView(q){
+  document.body.classList.remove('memo-mode');
+  document.body.classList.add('petty-mode');
+  setPettyHead();
+
+  // 動態標題
+  var viewTitleEl = document.getElementById('viewTitle');
+  if(viewTitleEl) viewTitleEl.textContent = '零用金';
+
+  // 餘額 + 本月小計 + 撥款/支出按鈕（放在原本兩排 stats-row 的位置，合併成一個橫幅）
+  var bal = pettyBalance();
+  var mt = pettyMonthTotals();
+  var balColor = bal < 0 ? '#E67C73' : 'var(--t1)';
+  document.getElementById('typeStatsRow').innerHTML =
+    '<div style="flex:1;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">' +
+      '<div>' +
+        '<div style="font-size:12px;color:var(--tm);margin-bottom:3px">目前餘額</div>' +
+        '<div style="font-size:30px;font-weight:700;color:'+balColor+';line-height:1.1">'+fmtMoney(bal)+'</div>' +
+        '<div style="font-size:12px;color:var(--tm);margin-top:6px">本月撥款 <span style="color:#5FC98E">'+fmtMoney(mt.inc)+'</span> ・ 本月支出 <span style="color:#E67C73">'+fmtMoney(mt.exp)+'</span></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px">' +
+        '<button class="btn" style="background:rgba(95,201,142,0.15);color:#5FC98E;border:1px solid rgba(95,201,142,0.4);font-weight:700" onclick="addPettyIncome()"><i class="ti ti-plus"></i> 撥款</button>' +
+        '<button class="tn-btn tn-add" onclick="addPettyExpense()"><i class="ti ti-plus"></i> 支出</button>' +
+      '</div>' +
+    '</div>';
+  // 第二排空著（零用金不需要），清掉避免殘留
+  document.getElementById('statsRow').innerHTML = '';
+
+  // 明細（最新在上；loadData 已照 entry_date desc, created_at desc 排好）
+  var data = pettyCash.slice();
+  if(q) data = data.filter(function(e){
+    return (e.note||'').toLowerCase().includes(q) ||
+           (e.categories||[]).some(function(k){ var c=pettyCatByKey(k); return c && c.label.toLowerCase().includes(q); }) ||
+           (e.entryType==='income' && ('撥款'.includes(q)));
+  });
+
+  var body = document.getElementById('caseBody');
+  if(!data.length){
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:44px;color:var(--tm)">'+(q?'沒有符合的帳目':'點「＋撥款」先加值，或「＋支出」開始記帳')+'</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map(function(e){
+    var isInc = e.entryType==='income';
+    var amtColor = isInc ? '#5FC98E' : '#E67C73';
+    var amtText = (isInc?'+':'-') + fmtMoney(e.amount).replace('$','$');
+    var dd = (e.entryDate||'').slice(5).replace('-','/'); // mm/dd
+    return '<tr'+(isInc?' style="background:rgba(95,201,142,0.04)"':'')+'>' +
+      '<td style="color:var(--t2)">'+(dd||'—')+'</td>' +
+      '<td>'+renderPettyCatChips(e)+'</td>' +
+      '<td style="text-align:right;color:'+amtColor+';font-weight:700">'+amtText+'</td>' +
+      '<td style="color:var(--t2);white-space:pre-wrap;word-break:break-word">'+(e.note?e.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'<span class="cm">—</span>')+'</td>' +
+      '<td style="text-align:center"><button class="del-btn" onclick="deletePetty(\''+e.id+'\')" title="刪除"><i class="ti ti-trash"></i></button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ── 撥款視窗 ──
+function addPettyIncome(){
+  document.getElementById('pettyModalTitle').textContent='撥款（加值）';
+  document.getElementById('pettyEntryType').value='income';
+  document.getElementById('pcAmount').value='';
+  document.getElementById('pcNote').value='';
+  setPettyModalDate(todayStr());
+  document.getElementById('pettyCatRow').style.display='none'; // 撥款不選類別
+  document.getElementById('pettyModal').classList.add('show');
+  document.getElementById('pcAmount').focus();
+}
+// ── 支出視窗 ──
+function addPettyExpense(){
+  document.getElementById('pettyModalTitle').textContent='支出';
+  document.getElementById('pettyEntryType').value='expense';
+  document.getElementById('pcAmount').value='';
+  document.getElementById('pcNote').value='';
+  setPettyModalDate(todayStr());
+  pettyModalCats = ['post']; // 預設郵務
+  renderPettyModalCats();
+  document.getElementById('pettyCatRow').style.display='';
+  document.getElementById('pettyModal').classList.add('show');
+  document.getElementById('pcAmount').focus();
+}
+function renderPettyModalCats(){
+  var box=document.getElementById('pettyCatCheckboxes');
+  box.innerHTML=PETTY_CATS.map(function(t){
+    var on=pettyModalCats.includes(t.key);
+    return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:'+t.color+';font-weight:600" onclick="event.preventDefault();togglePettyModalCat(\''+t.key+'\')">' +
+      '<input type="checkbox" '+(on?'checked':'')+' style="accent-color:'+t.color+';width:14px;height:14px;pointer-events:none">' +
+      t.label +
+    '</label>';
+  }).join('');
+}
+function togglePettyModalCat(key){
+  var i=pettyModalCats.indexOf(key);
+  if(i>=0) pettyModalCats.splice(i,1); else pettyModalCats.push(key);
+  renderPettyModalCats();
+}
+function setPettyModalDate(dtStr){
+  document.getElementById('pcDate').value=dtStr;
+  var pm=dtStr.split('-');
+  document.getElementById('pcDateLabel').textContent=pm[0]+'/'+pm[1]+'/'+pm[2];
+  document.getElementById('pcDateLabel').style.color='var(--t1)';
+}
+function closePettyModal(){ document.getElementById('pettyModal').classList.remove('show'); }
+function savePettyModal(){
+  var amtRaw=document.getElementById('pcAmount').value.trim();
+  var amt=parseFloat(amtRaw);
+  if(!amtRaw || isNaN(amt) || amt<=0){ alert('請填寫正確的金額'); return; }
+  var type=document.getElementById('pettyEntryType').value;
+  var obj={
+    entryType:type,
+    amount:amt,
+    categories: type==='expense' ? pettyModalCats.slice() : [],
+    note:document.getElementById('pcNote').value||'',
+    entryDate:document.getElementById('pcDate').value||todayStr()
+  };
+  closePettyModal();
+  dbSavePetty(obj);
+}
+// 零用金視窗的日曆
+function openPettyModalCalendar(e){
+  e.stopPropagation();
+  calTarget={petty:true};
+  var val=document.getElementById('pcDate').value;
+  var now=val?new Date(val):new Date();
+  calYear=now.getFullYear(); calMonth=now.getMonth();
+  renderCalendar();
+  var pop=document.getElementById('calPopup');
+  pop.style.display='block';
+  var rect=e.currentTarget.getBoundingClientRect();
+  var left=rect.left, top=rect.bottom+4;
+  if(left+310>window.innerWidth) left=window.innerWidth-314;
+  if(top+320>window.innerHeight) top=rect.top-320;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+}
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// ── 零用金 DB 操作 ──
+function dbSavePetty(obj){
+  var row={
+    entry_type: obj.entryType,
+    amount: obj.amount,
+    categories: obj.categories || [],
+    note: obj.note || '',
+    entry_date: obj.entryDate
+  };
+  _SB.from('petty_cash').insert(row).then(function(r){
+    if(r.error){ console.error('Insert petty error:', r.error); alert('儲存失敗：'+r.error.message); return; }
+    loadData();
+  });
+}
+function deletePetty(id){
+  if(!confirm('確定刪除這筆帳目？（可在垃圾桶復原）')) return;
+  _SB.from('petty_cash').update({deleted_at: new Date().toISOString()}).eq('id', id).then(function(r){
+    if(r.error){ console.error('Delete petty error:', r.error); alert('刪除失敗：'+r.error.message); return; }
+    loadData();
+  });
+}
+function loadPettyTrash(){
+  return _SB.from('petty_cash').select('*').not('deleted_at','is',null).order('deleted_at',{ascending:false}).then(function(r){
+    if(r.error){ console.error('Load petty trash error:', r.error); return; }
+    trashedPetty = (r.data||[]).map(mapPettyRow);
+    renderTrash();
+  });
+}
+function dbRestorePetty(id){
+  _SB.from('petty_cash').update({deleted_at:null}).eq('id', id).then(function(r){
+    if(r.error){ alert('還原失敗：'+r.error.message); return; }
+    loadPettyTrash(); loadData();
+  });
+}
+function confirmPermanentDeletePetty(id){
+  if(!confirm('永久刪除後將無法復原，確定要繼續嗎？')) return;
+  _SB.from('petty_cash').delete().eq('id', id).then(function(r){
+    if(r.error){ alert('刪除失敗：'+r.error.message); return; }
+    loadPettyTrash();
+  });
+}
+
 // ── Directly attach click listeners to each row using CAPTURE phase ──
 // Capture phase fires BEFORE any child's own onclick (status popup, calendar, edit cell, etc.)
 // so we can intercept the click before it reaches those handlers, regardless of pointer-events CSS support.
@@ -2330,20 +2631,51 @@ function deleteSelectedCases(){
 // ── Trash bin ──
 function openTrash(){
   document.getElementById('trashModal').classList.add('show');
-  loadTrash();
+  if(pettyView){ loadPettyTrash(); } else { loadTrash(); }
 }
 function closeTrash(){
   document.getElementById('trashModal').classList.remove('show');
 }
 function renderTrash(){
   var body = document.getElementById('trashBody');
+  var titleEl = document.getElementById('trashModalTitle');
+  var noteEl = document.getElementById('trashNote');
+
+  // ── 零用金垃圾桶 ──
+  if(pettyView){
+    if(titleEl) titleEl.innerHTML = '<i class="ti ti-trash" style="margin-right:6px"></i>垃圾桶（零用金）';
+    if(noteEl) noteEl.textContent = '已刪除的帳目會保留 30 天，期滿後自動永久刪除';
+    var plist = trashedPetty || [];
+    if(!plist.length){
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--tm);font-size:13px">垃圾桶是空的</div>';
+      return;
+    }
+    body.innerHTML = plist.map(function(e){
+      var deletedDate = e.deleted_at ? new Date(e.deleted_at) : null;
+      var daysLeft = deletedDate ? Math.max(0, 30 - Math.floor((Date.now()-deletedDate.getTime())/86400000)) : 30;
+      var isInc = e.entryType==='income';
+      var title = (isInc?'撥款 ':'支出 ') + (isInc?'+':'-') + fmtMoney(e.amount);
+      var meta = (e.entryDate||'') + (e.note?('　'+e.note.slice(0,30)):'');
+      return '<div class="trash-item">' +
+        '<div class="trash-item-info">' +
+          '<div class="trash-item-name" style="color:'+(isInc?'#5FC98E':'#E67C73')+'">' + title + '</div>' +
+          '<div class="trash-item-meta">' + meta.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+          '<div class="trash-item-days">' + daysLeft + ' 天後永久刪除</div>' +
+        '</div>' +
+        '<div class="trash-item-actions">' +
+          '<button class="btn bg" style="font-size:12px;padding:5px 12px" onclick="dbRestorePetty(\''+e.id+'\')"><i class="ti ti-rotate"></i> 還原</button>' +
+          '<button class="btn bda" style="font-size:12px;padding:5px 12px" onclick="confirmPermanentDeletePetty(\''+e.id+'\')"><i class="ti ti-trash-x"></i> 永久刪除</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return;
+  }
+
   var inMemo = isOpsManagerView();
   // 垃圾桶內容依當前頁面切換：營運經理→只看備忘錄垃圾桶；其他→只看案件垃圾桶
   var list = trashedCases.filter(function(c){ return inMemo ? c.isMemo : !c.isMemo; });
   // 更新標題與說明文字
-  var titleEl = document.getElementById('trashModalTitle');
   if(titleEl) titleEl.innerHTML = '<i class="ti ti-trash" style="margin-right:6px"></i>' + (inMemo?'垃圾桶（待辦事項）':'垃圾桶');
-  var noteEl = document.getElementById('trashNote');
   if(noteEl) noteEl.textContent = (inMemo?'已刪除的待辦事項':'已刪除的案件') + '會保留 30 天，期滿後自動永久刪除';
   if(!list.length){
     body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--tm);font-size:13px">垃圾桶是空的</div>';
@@ -2737,6 +3069,36 @@ function dragEnd(e){
     <div class="mfoot">
       <button class="btn bg" onclick="closeMemoModal()">取消</button>
       <button class="btn bp2" onclick="saveMemoModal()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Petty Cash Modal (零用金：撥款/支出) -->
+<div class="overlay" id="pettyModal">
+  <div class="modal" style="width:460px">
+    <div class="mhead">
+      <span class="mtitle" id="pettyModalTitle">支出</span>
+      <button class="mclose" onclick="closePettyModal()">×</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="pettyEntryType" value="expense">
+      <div class="fg"><label class="flabel">金額</label><input class="finput" id="pcAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="0"></div>
+      <div class="fg" id="pettyCatRow"><label class="flabel">類別（可複選）</label>
+        <div id="pettyCatCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-wrap:wrap;gap:10px 16px;"></div>
+      </div>
+      <div class="fg">
+        <label class="flabel">日期</label>
+        <div class="date-trigger" onclick="openPettyModalCalendar(event)" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;color:var(--t1);">
+          <span id="pcDateLabel" style="color:var(--t1)">—</span>
+          <i class="ti ti-calendar" style="font-size:14px;color:var(--tm)"></i>
+        </div>
+        <input type="hidden" id="pcDate">
+      </div>
+      <div class="fg"><label class="flabel">概述</label><input class="finput" id="pcNote" placeholder="簡短備註（例如：寄王案存證信函）"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="closePettyModal()">取消</button>
+      <button class="btn bp2" onclick="savePettyModal()">儲存</button>
     </div>
   </div>
 </div>
