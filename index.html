@@ -499,6 +499,34 @@ tbody tr:hover .del-btn{opacity:1;}
     overflow-wrap: break-word; word-break: break-word; max-width: 100% !important;
   }
 
+  /* ═══ 零用金：手機卡片（金額大字置中、類別置中放大；下面日期+概述小字）═══
+     欄位順序：日期(1) 類別(2) 金額(3) 概述(4) 刪除(5) */
+  body.petty-mode tbody tr {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "pamt   pamt"
+      "pcat   pcat"
+      "pdate  pnote" !important;
+    align-items: center;
+    row-gap: 12px !important;
+  }
+  body.petty-mode tbody td:nth-child(3) { grid-area: pamt; }   /* 金額 */
+  body.petty-mode tbody td:nth-child(2) { grid-area: pcat; }   /* 類別 */
+  body.petty-mode tbody td:nth-child(1) { grid-area: pdate; }  /* 日期 */
+  body.petty-mode tbody td:nth-child(4) { grid-area: pnote; }  /* 概述 */
+  body.petty-mode tbody td:nth-child(5) { display: none !important; } /* 刪除鈕手機不顯示 */
+  body.petty-mode tbody td::before { display: none !important; content: "" !important; }
+  /* 金額：大字置中 */
+  body.petty-mode tbody td:nth-child(3) { text-align: center !important; font-size: 30px !important; font-weight: 700 !important; }
+  /* 類別：置中、放大 chip */
+  body.petty-mode tbody td:nth-child(2) { text-align: center !important; }
+  body.petty-mode tbody td:nth-child(2) > div { justify-content: center !important; }
+  body.petty-mode tbody td:nth-child(2) .tagchip { font-size: 16px !important; padding: 5px 16px !important; font-weight: 700 !important; }
+  body.petty-mode tbody td:nth-child(2) span[style*="撥款"], body.petty-mode tbody td:nth-child(2) > span { font-size: 16px !important; font-weight: 700 !important; }
+  /* 日期＋概述：小字，上有分隔線 */
+  body.petty-mode tbody td:nth-child(1) { color: var(--tm) !important; font-size: 13px !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
+  body.petty-mode tbody td:nth-child(4) { color: var(--t2) !important; font-size: 13px !important; text-align: right !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
+
   /* Modal / Calendar / Popups */
   .modal { width: 95vw !important; max-height: 85vh; overflow-y: auto; }
   .mbody { padding: 14px 16px; gap: 10px; }
@@ -2441,7 +2469,7 @@ function renderPettyView(q){
 
 // ── 撥款視窗 ──
 function addPettyIncome(){
-  document.getElementById('pettyModalTitle').textContent='撥款（加值）';
+  document.getElementById('pettyModalTitle').textContent='撥款';
   document.getElementById('pettyEntryType').value='income';
   document.getElementById('pcAmount').value='';
   document.getElementById('pcNote').value='';
@@ -2485,8 +2513,14 @@ function setPettyModalDate(dtStr){
   document.getElementById('pcDateLabel').style.color='var(--t1)';
 }
 function closePettyModal(){ document.getElementById('pettyModal').classList.remove('show'); }
+// 金額輸入即時加千分位逗號（只留數字，超過三位就每三位一逗號）
+function formatPettyAmount(el){
+  var digits = (el.value||'').replace(/[^\d]/g, ''); // 只留數字
+  if(!digits){ el.value=''; return; }
+  el.value = Number(digits).toLocaleString('en-US');
+}
 function savePettyModal(){
-  var amtRaw=document.getElementById('pcAmount').value.trim();
+  var amtRaw=(document.getElementById('pcAmount').value||'').replace(/[^\d.]/g,''); // 去掉逗號
   var amt=parseFloat(amtRaw);
   if(!amtRaw || isNaN(amt) || amt<=0){ alert('請填寫正確的金額'); return; }
   var type=document.getElementById('pettyEntryType').value;
@@ -3082,7 +3116,7 @@ function dragEnd(e){
     </div>
     <div class="mbody">
       <input type="hidden" id="pettyEntryType" value="expense">
-      <div class="fg"><label class="flabel">金額</label><input class="finput" id="pcAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="0"></div>
+      <div class="fg"><label class="flabel">金額</label><input class="finput" id="pcAmount" type="text" inputmode="numeric" autocomplete="off" oninput="formatPettyAmount(this)"></div>
       <div class="fg" id="pettyCatRow"><label class="flabel">類別（可複選）</label>
         <div id="pettyCatCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-wrap:wrap;gap:10px 16px;"></div>
       </div>
@@ -3094,7 +3128,7 @@ function dragEnd(e){
         </div>
         <input type="hidden" id="pcDate">
       </div>
-      <div class="fg"><label class="flabel">概述</label><input class="finput" id="pcNote" placeholder="簡短備註（例如：寄王案存證信函）"></div>
+      <div class="fg"><label class="flabel">概述</label><input class="finput" id="pcNote" autocomplete="off"></div>
     </div>
     <div class="mfoot">
       <button class="btn bg" onclick="closePettyModal()">取消</button>
