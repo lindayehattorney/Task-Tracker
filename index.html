@@ -969,7 +969,7 @@ html.is-ipad body.petty-mode tbody td:nth-child(3) { grid-area: pcat; }
 html.is-ipad body.petty-mode tbody td:nth-child(3) .cw > div { flex-direction: row !important; flex-wrap: wrap; gap: 5px !important; }
 html.is-ipad body.petty-mode tbody td:nth-child(3) .tagchip { font-size: 14px; padding: 4px 13px; font-weight: 700; }
 html.is-ipad body.petty-mode tbody td:nth-child(3) > span { font-size: 15px; font-weight: 700; }
-html.is-ipad body.petty-mode tbody td:nth-child(4) { grid-area: pamt; text-align: right; font-size: 22px; font-weight: 700; }
+html.is-ipad body.petty-mode tbody td:nth-child(4) { grid-area: pamt; text-align: right !important; font-size: 22px; font-weight: 700; }
 html.is-ipad body.petty-mode tbody td:nth-child(5) { grid-area: pnote; color: var(--t2); font-size: 15px; white-space: normal; word-break: break-word; }
 html.is-ipad body.petty-mode tbody td:nth-child(5)::before { display: none !important; content: "" !important; }
 html.is-ipad body.petty-mode tbody td:nth-child(2)::before,
@@ -2519,7 +2519,7 @@ function renderPettyView(q){
     var catCell = (isInc || sel)
       ? '<td style="width:190px;text-align:center">'+catInner+'</td>'
       : '<td class="ed" data-petty-cat-cell onclick="openPettyCatPopup(event,\''+e.id+'\')" style="cursor:pointer;width:190px;text-align:center">'+catInner+'</td>';
-    var amtStyle = 'width:150px;text-align:right;color:'+amtColor+';font-weight:700';
+    var amtStyle = 'width:150px;text-align:center;color:'+amtColor+';font-weight:700';
     var amtCell = sel
       ? '<td style="'+amtStyle+'">'+amtText+'</td>'
       : '<td class="ed" onclick="activatePettyTextCell(this,\''+e.id+'\',\'amount\')" style="cursor:pointer;'+amtStyle+'">'+amtText+'</td>';
