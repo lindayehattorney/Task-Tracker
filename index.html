@@ -528,9 +528,11 @@ tbody tr:hover .del-btn{opacity:1;}
   body.petty-mode tbody td:nth-child(4) { text-align: center !important; font-size: 30px !important; font-weight: 700 !important; }
   /* 類別：置中、放大 chip */
   body.petty-mode tbody td:nth-child(3) { text-align: center !important; }
-  body.petty-mode tbody td:nth-child(3) > div { justify-content: center !important; }
+  body.petty-mode tbody td:nth-child(3) .cw { display: flex !important; justify-content: center !important; }
+  body.petty-mode tbody td:nth-child(3) .cw > div { display: flex !important; justify-content: center !important; width: 100%; }
   body.petty-mode tbody td:nth-child(3) .tagchip { font-size: 16px !important; padding: 5px 16px !important; font-weight: 700 !important; }
-  body.petty-mode tbody td:nth-child(3) > span { font-size: 16px !important; font-weight: 700 !important; }
+  body.petty-mode tbody td:nth-child(3) .cw > span,
+  body.petty-mode tbody td:nth-child(3) > span { font-size: 18px !important; font-weight: 700 !important; }
   /* 日期＋概述：小字，上有分隔線 */
   body.petty-mode tbody td:nth-child(2) { color: var(--tm) !important; font-size: 13px !important; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); text-align: left !important; justify-content: flex-start !important; }
   body.petty-mode tbody td:nth-child(2) .cw { justify-content: flex-start !important; }
@@ -976,7 +978,8 @@ html.is-ipad body.petty-mode tbody td:nth-child(2) { grid-area: pdate; color: va
 html.is-ipad body.petty-mode tbody td:nth-child(3) { grid-area: pcat; }
 html.is-ipad body.petty-mode tbody td:nth-child(3) .cw > div { flex-direction: row !important; flex-wrap: wrap; gap: 5px !important; }
 html.is-ipad body.petty-mode tbody td:nth-child(3) .tagchip { font-size: 14px; padding: 4px 13px; font-weight: 700; }
-html.is-ipad body.petty-mode tbody td:nth-child(3) > span { font-size: 15px; font-weight: 700; }
+html.is-ipad body.petty-mode tbody td:nth-child(3) .cw > span,
+html.is-ipad body.petty-mode tbody td:nth-child(3) > span { font-size: 16px !important; font-weight: 700; }
 html.is-ipad body.petty-mode tbody td:nth-child(4) { grid-area: pamt; text-align: center !important; font-size: 22px; font-weight: 700; }
 html.is-ipad body.petty-mode tbody td:nth-child(5) { grid-area: pnote; color: var(--t2); font-size: 15px; white-space: normal; word-break: break-word; }
 html.is-ipad body.petty-mode tbody td:nth-child(5)::before { display: none !important; content: "" !important; }
