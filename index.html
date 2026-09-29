@@ -58,6 +58,10 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-member{position:relative;border:1px solid transparent;}
 /* 員工身分：藏掉「營運經理」頁籤（紙門，僅前端遮蔽）*/
 body.role-staff .tn-member[data-mname="營運經理"]{display:none !important;}
+/* 員工身分：不能編輯/刪除/新增人員 → 藏「⋯」編輯鈕與「＋」新增人員鈕
+   （m-edit 是巢狀 button，被解析成 memberItems 的直接子元素）*/
+body.role-staff #memberItems .m-edit, body.role-staff .topnav .m-edit{display:none !important;}
+body.role-staff #addMemberBtn{display:none !important;}
 .tn-member:hover{border-color:var(--bd-b);}
 .tn-member.active{background:rgba(201,168,76,0.14);color:var(--gold);border-color:var(--bd-b);}
 .tn-member.dragging{opacity:0.4;}
@@ -1637,6 +1641,7 @@ function selectPetty(){
 
 // ── Member CRUD ──
 function openAddMember(){
+  if(currentRole==='staff') return; // 員工不能新增人員
   editingMemberId=null;
   document.getElementById('memberModalTitle').textContent='新增人員';
   document.getElementById('mName').value='';
@@ -1645,6 +1650,7 @@ function openAddMember(){
   document.getElementById('mName').focus();
 }
 function openEditMember(id){
+  if(currentRole==='staff') return; // 員工不能編輯/刪除人員
   editingMemberId=id;
   const m=members.find(x=>x.id===id);
   document.getElementById('memberModalTitle').textContent='編輯人員';
