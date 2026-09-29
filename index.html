@@ -56,6 +56,8 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-divider{width:1px;height:24px;background:var(--bd);flex-shrink:0;margin:0 4px;}
 .tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
+/* 員工身分：藏掉「營運經理」頁籤（紙門，僅前端遮蔽）*/
+body.role-staff .tn-member[data-mname="營運經理"]{display:none !important;}
 .tn-member:hover{border-color:var(--bd-b);}
 .tn-member.active{background:rgba(201,168,76,0.14);color:var(--gold);border-color:var(--bd-b);}
 .tn-member.dragging{opacity:0.4;}
@@ -1493,19 +1495,40 @@ function showApp(){
 function doLogin(){
   var u=document.getElementById('lu').value.trim();
   var p=document.getElementById('lp').value;
-  if(u==='admin'&&p==='OfficeD2024'){
+  var role=null;
+  if(u==='admin'&&p==='ManagerHsia'){ role='boss'; }      // 老闆：看全部
+  else if(u==='admin'&&p==='OfficeD2024'){ role='staff'; } // 員工：看不到營運經理
+  if(role){
     // 記住30天
     var expiry=Date.now()+(30*24*60*60*1000);
     localStorage.setItem('yl_login_token','VALID');
     localStorage.setItem('yl_login_expiry',expiry.toString());
+    localStorage.setItem('yl_login_role',role);
+    currentRole=role;
+    applyRolePermissions();
     showApp();
   } else {
     alert('帳號或密碼錯誤');
   }
 }
+// 目前登入身分：'boss'（老闆，看全部）或 'staff'（員工，看不到營運經理）
+var currentRole=null;
+// 依身分套用權限：員工藏掉「營運經理」頁籤
+function applyRolePermissions(){
+  var isStaff = (currentRole==='staff');
+  document.body.classList.toggle('role-staff', isStaff);
+  // 若員工目前正停在營運經理頁面，踢回全部案件（保險）
+  if(isStaff && currentMemberId){
+    var m=members.find(function(x){return x.id===currentMemberId;});
+    if(m && m.name==='營運經理'){ selectAll(); }
+  }
+}
 function logout(){
   localStorage.removeItem('yl_login_token');
   localStorage.removeItem('yl_login_expiry');
+  localStorage.removeItem('yl_login_role');
+  currentRole=null;
+  document.body.classList.remove('role-staff');
   if(_realtimeChannel) _SB.removeChannel(_realtimeChannel);
   document.getElementById('app').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
@@ -1516,6 +1539,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   var token=localStorage.getItem('yl_login_token');
   var expiry=localStorage.getItem('yl_login_expiry');
   if(token==='VALID' && expiry && Date.now()<parseInt(expiry)){
+    currentRole=localStorage.getItem('yl_login_role')||'staff'; // 舊 session 沒記角色的，保守當員工
+    applyRolePermissions();
     document.getElementById('loginScreen').style.display='none';
     var app=document.getElementById('app');
     app.style.display='flex';
@@ -1555,6 +1580,7 @@ function renderSidebar(){
     return `<button class="tn-btn tn-member${isActive?' active':''}"
       draggable="true"
       data-mid="${m.id}"
+      data-mname="${m.name}"
       onclick="selectMember('${m.id}')"
       ondragstart="dragStart(event,'${m.id}')"
       ondragover="dragOver(event)"
@@ -1584,9 +1610,12 @@ function selectAll(){
   renderSidebar(); renderCases();
 }
 function selectMember(id){
+  const m=members.find(x=>x.id===id);
+  if(!m) return;
+  // 員工不能進營運經理頁面（紙門防護）
+  if(currentRole==='staff' && m.name==='營運經理'){ selectAll(); return; }
   currentMemberId=id;
   pettyView=false;      // 離開零用金
-  const m=members.find(x=>x.id===id);
   document.getElementById('viewTitle').textContent=m.name;
   memoTagFilter=null;   // 切換人員時重置備忘錄標籤篩選
   commitActiveCell();
