@@ -53,6 +53,10 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-btn.active{background:rgba(201,168,76,0.14);color:var(--gold);}
 .tn-add{background:var(--gold);color:var(--navy);font-weight:700;}
 .tn-add:hover{background:var(--gold-l);}
+/* 零用金頁籤：綠色（＝撥款進帳綠 #5FC98E），一看就是「錢」*/
+#pettyItem{color:#5FC98E;font-weight:600;}
+#pettyItem:hover{background:rgba(95,201,142,0.10);color:#5FC98E;}
+#pettyItem.active{background:rgba(95,201,142,0.16);color:#5FC98E;}
 .tn-divider{width:1px;height:24px;background:var(--bd);flex-shrink:0;margin:0 4px;}
 .tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
@@ -1112,8 +1116,8 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
       </div>
       <div id="multiSelectBar" style="display:none;padding:8px 20px;background:rgba(226,75,74,0.08);border-bottom:1px solid rgba(226,75,74,0.25);align-items:center;gap:12px;">
         <span id="selectedCountLabel" style="font-size:13px;color:var(--t2)">已選擇 0 筆</span>
-        <button class="btn bda" onclick="deleteSelectedCases()" style="font-size:12px;padding:5px 12px"><i class="ti ti-trash"></i> 刪除已選</button>
-        <button class="btn bg" onclick="toggleSelectMode()" style="font-size:12px;padding:5px 12px;margin-left:auto">取消</button>
+        <button class="btn bda" onclick="deleteSelectedCases()" style="font-size:12px;padding:5px 12px;margin-left:auto"><i class="ti ti-trash"></i> 刪除已選</button>
+        <button class="btn bg" onclick="toggleSelectMode()" style="font-size:12px;padding:5px 12px">取消</button>
       </div>
       <div class="stats-row" id="typeStatsRow"></div>
       <div class="stats-row" id="statsRow"></div>
