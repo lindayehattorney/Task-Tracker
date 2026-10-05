@@ -61,7 +61,7 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
 /* 員工身分：藏掉「營運經理」頁籤（紙門，僅前端遮蔽）*/
-body.role-staff .tn-member[data-mname="營運經理"]{display:none !important;}
+body.role-staff .tn-member[data-mname="經理"]{display:none !important;}
 /* 員工身分：不能編輯/刪除/新增人員 → 藏「⋯」編輯鈕與「＋」新增人員鈕
    （m-edit 是巢狀 button，被解析成 memberItems 的直接子元素）*/
 body.role-staff #memberItems .m-edit, body.role-staff .topnav .m-edit{display:none !important;}
@@ -1291,8 +1291,10 @@ function renderPettyCatChips(e){
 // 判斷目前是否在「營運經理」頁面
 function isOpsManagerView(){
   var m = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
-  return !!(m && m.name==='營運經理');
+  return !!(m && m.name==='經理');
 }
+// 特殊功能人員（秘書=行政篩選、經理=備忘錄）——不當案件負責人，負責人選單要排除
+function isSpecialMember(name){ return name==='秘書' || name==='經理'; }
 // 由 key 取標籤物件 / 顏色 / 名稱
 function memoTagByKey(k){ return MEMO_TAGS.find(t=>t.key===k) || null; }
 // 依標籤顏色產生半透明底色（用於 chip 背景）
@@ -1528,7 +1530,7 @@ function applyRolePermissions(){
   // 若員工目前正停在營運經理頁面，踢回全部案件（保險）
   if(isStaff && currentMemberId){
     var m=members.find(function(x){return x.id===currentMemberId;});
-    if(m && m.name==='營運經理'){ selectAll(); }
+    if(m && m.name==='經理'){ selectAll(); }
   }
 }
 function logout(){
@@ -1621,7 +1623,7 @@ function selectMember(id){
   const m=members.find(x=>x.id===id);
   if(!m) return;
   // 員工不能進營運經理頁面（紙門防護）
-  if(currentRole==='staff' && m.name==='營運經理'){ selectAll(); return; }
+  if(currentRole==='staff' && m.name==='經理'){ selectAll(); return; }
   currentMemberId=id;
   pettyView=false;      // 離開零用金
   document.getElementById('viewTitle').textContent=m.name;
@@ -2112,14 +2114,14 @@ function renderCases(){
   // 判斷目前選的負責人
   var currentMember = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
   // ── 營運經理備忘錄：走完全不同的渲染路徑 ──
-  if(currentMember && currentMember.name==='營運經理'){
+  if(currentMember && currentMember.name==='經理'){
     renderMemoView(q, currentMember);
     return;
   }
   ensureCaseHead(); // 從備忘錄/零用金切回時還原案件表頭
   document.body.classList.remove('memo-mode');
   document.body.classList.remove('petty-mode');
-  var isSecretary = currentMember && currentMember.name==='小秘書';
+  var isSecretary = currentMember && currentMember.name==='秘書';
   let data;
   if(isSecretary){
     // 小秘書專屬：篩選「行政事項」或「行政截止日」任一有填的案件（排除備忘錄）
@@ -3155,10 +3157,12 @@ function openPersonPopup(e, caseId){
   const c=cases.find(x=>x.id===caseId);
   const selectedIds=c.personIds||(c.personId?[c.personId]:[]);
   const list=document.getElementById('personPopupList');
-  if(!members.length){
+  // 負責人選單排除特殊功能人員（秘書、經理）——他們不辦案，不當負責人
+  var assignable=members.filter(function(m){ return !isSpecialMember(m.name); });
+  if(!assignable.length){
     list.innerHTML='<div style="font-size:12px;color:var(--tm);padding:6px 12px">尚無人員，請先新增</div>';
   } else {
-    list.innerHTML=members.map(m=>`
+    list.innerHTML=assignable.map(m=>`
       <div class="sp-item" onclick="togglePersonAssign('${m.id}')" id="pp_${m.id}">
         <div class="pp-box" style="width:16px;height:16px;border-radius:4px;border:1.5px solid var(--bd-b);display:flex;align-items:center;justify-content:center;flex-shrink:0;${selectedIds.includes(m.id)?'background:var(--gold);border-color:var(--gold)':''}">
           <i class="ti ti-check pp-check" style="font-size:11px;color:var(--navy);${selectedIds.includes(m.id)?'':'display:none;'}"></i>
