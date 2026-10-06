@@ -516,6 +516,33 @@ tbody tr:hover .del-btn{opacity:1;}
     overflow-wrap: break-word; word-break: break-word; max-width: 100% !important;
   }
 
+  /* ═══ 秘書待辦：手機卡片（無標籤）═══
+     欄位順序：checkbox(1) 待辦(2) 截止日(3) 詳細(4) 刪除(5) */
+  body.sec-todo-mode tbody tr {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "sname  sname"
+      "sddl   sddl"
+      "sdesc  sdesc" !important;
+  }
+  body.sec-todo-mode tbody td:nth-child(2) { grid-area: sname; text-align: center; }
+  body.sec-todo-mode tbody td:nth-child(3) { grid-area: sddl; text-align: center; margin-top:0; border-top:none; }
+  body.sec-todo-mode tbody td:nth-child(4) { grid-area: sdesc; }
+  body.sec-todo-mode tbody td:nth-child(5) { display: none !important; } /* 刪除鈕手機不顯示（用多選）*/
+  body.sec-todo-mode tbody td:nth-child(2)::before,
+  body.sec-todo-mode tbody td:nth-child(3)::before,
+  body.sec-todo-mode tbody td:nth-child(4)::before { content: "" !important; }
+  /* 待辦事項：置中大字 */
+  body.sec-todo-mode tbody td:nth-child(2) .cw { text-align: center; }
+  body.sec-todo-mode tbody td:nth-child(2) .ct { font-size: 18px !important; font-weight: 700; color: var(--t1); white-space: normal; line-height: 1.35; }
+  /* 截止日：置中，標籤「截止日」 */
+  body.sec-todo-mode tbody td:nth-child(3) .cw { justify-content: center; }
+  body.sec-todo-mode tbody td:nth-child(3)::before { content: "截止日" !important; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; text-align: center; }
+  /* 詳細說明：完整文字、上分隔線，標籤「詳細說明」 */
+  body.sec-todo-mode tbody td:nth-child(4) { margin-top: 3px; padding-top: 10px !important; border-top: 1px solid rgba(201,168,76,0.12); }
+  body.sec-todo-mode tbody td:nth-child(4)::before { content: "詳細說明" !important; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; }
+  body.sec-todo-mode tbody td:nth-child(4) .ct { white-space: pre-wrap; line-height: 1.6; font-size: 16px; color: var(--t2); }
+
   /* ═══ 零用金：手機卡片（金額大字置中、類別置中放大；下面日期+概述小字）═══
      欄位順序：checkbox(1) 日期(2) 類別(3) 金額(4) 概述(5) 刪除(6) */
   body.petty-mode tbody tr {
@@ -951,6 +978,24 @@ html.is-ipad body.memo-mode tbody td:nth-child(4)::before { content: "截止日"
 html.is-ipad body.memo-mode tbody td:nth-child(5)::before { content: "詳細說明" !important; display: block !important; font-size: 14px; color: var(--tm); margin-bottom: 5px; font-weight: 400; }
 html.is-ipad body.memo-mode tbody td:nth-child(5) .ct { white-space: pre-wrap; line-height: 1.6; font-size: 18px; color: var(--t2); }
 
+/* ═══ iPad：秘書待辦卡片（無標籤）═══
+   欄位順序：checkbox(1) 待辦(2) 截止日(3) 詳細(4) 刪除(5) */
+html.is-ipad body.sec-todo-mode tbody tr:has(td.checkbox-col) {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr !important;
+  grid-template-areas:
+    "sname  sname  sname  sname  sname"
+    "sddl   sdesc  sdesc  sdesc  sdesc" !important;
+  align-items: stretch !important;
+}
+html.is-ipad body.sec-todo-mode tbody td:nth-child(2) { grid-area: sname; align-self: center; }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(3) { grid-area: sddl; align-self: start; margin-top: 6px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,0.12); }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(4) { grid-area: sdesc; align-self: start; margin-top: 6px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,0.12); }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(5) { display: none !important; }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(2)::before { display: none !important; content: "" !important; }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(3)::before { content: "截止日" !important; display: block !important; font-size: 14px; color: var(--tm); margin-bottom: 5px; font-weight: 400; text-align: left; }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(4)::before { content: "詳細說明" !important; display: block !important; font-size: 14px; color: var(--tm); margin-bottom: 5px; font-weight: 400; }
+html.is-ipad body.sec-todo-mode tbody td:nth-child(4) .ct { white-space: pre-wrap; line-height: 1.6; font-size: 18px; color: var(--t2); }
+
 /* iPad：人員頁籤「⋯」編輯鈕藏起來，省寬度讓小秘書不用滑就顯示
    （m-edit 是巢狀 button，被解析成 tn-member 的兄弟，直接掛在 memberItems 下）*/
 html.is-ipad #memberItems .m-edit, html.is-ipad .topnav .m-edit { display: none !important; }
@@ -1235,6 +1280,7 @@ let memoTagFilter = null; // 標籤篩選（一次一個，OR）
 // ── 零用金 ──
 let pettyCash = [];        // 零用金帳目
 let pettyView = false;     // 是否在零用金頁面
+let secretaryTab = 'todo'; // 秘書頁面切換：'todo'（秘書待辦，預設）或 'cases'（律師案件管理）
 let trashedPetty = [];     // 零用金垃圾桶
 let pettyModalCats = [];   // 支出視窗暫存已選類別
 const PETTY_CATS = [
@@ -1334,6 +1380,7 @@ function mapCaseRow(row){
     caseType: row.case_type || 'litigation',
     personIds: row.personids || [],
     isMemo: row.is_memo || false,
+    memoOwner: row.memo_owner || 'manager',
     memoTags: row.memo_tags || [],
     created_at: row.created_at,
     deleted_at: row.deleted_at || null
@@ -1421,6 +1468,7 @@ function dbSaveCase(caseObj, callback){
     case_type: caseObj.caseType || 'litigation',
     personids: caseObj.personIds || [],
     is_memo: caseObj.isMemo || false,
+    memo_owner: caseObj.memoOwner || 'manager',
     memo_tags: caseObj.memoTags || []
   };
   var isNew = !caseObj.id || caseObj.id.startsWith('tmp_');
@@ -1624,6 +1672,7 @@ function selectMember(id){
   if(!m) return;
   // 員工不能進營運經理頁面（紙門防護）
   if(currentRole==='staff' && m.name==='經理'){ selectAll(); return; }
+  if(m.name==='秘書'){ secretaryTab='todo'; } // 每次進秘書頁面預設「待辦事項」
   currentMemberId=id;
   pettyView=false;      // 離開零用金
   document.getElementById('viewTitle').textContent=m.name;
@@ -2118,10 +2167,18 @@ function renderCases(){
     renderMemoView(q, currentMember);
     return;
   }
+  // ── 秘書 + 待辦事項分頁：走備忘錄式渲染（秘書自己的待辦，無標籤）──
+  if(currentMember && currentMember.name==='秘書' && secretaryTab==='todo'){
+    renderSecretaryTodoView(q, currentMember);
+    return;
+  }
   ensureCaseHead(); // 從備忘錄/零用金切回時還原案件表頭
   document.body.classList.remove('memo-mode');
   document.body.classList.remove('petty-mode');
+  document.body.classList.remove('sec-todo-mode');
   var isSecretary = currentMember && currentMember.name==='秘書';
+  // 秘書的「律師案件管理」分頁：顯示切換鈕；非秘書頁面則藏切換鈕
+  if(isSecretary){ renderSecretaryToggle(); } else { hideSecretaryToggle(); }
   let data;
   if(isSecretary){
     // 小秘書專屬：篩選「行政事項」或「行政截止日」任一有填的案件（排除備忘錄）
@@ -2265,7 +2322,7 @@ function ensureCaseHead(){
   var thead = document.getElementById('caseHead');
   if(!thead) return;
   var mode = thead.getAttribute('data-mode');
-  if(_ORIG_CASE_HEAD_HTML && (mode==='memo' || mode==='petty')){
+  if(_ORIG_CASE_HEAD_HTML && (mode==='memo' || mode==='petty' || mode==='sectodo')){
     thead.innerHTML = _ORIG_CASE_HEAD_HTML;
     thead.setAttribute('data-mode','case');
   }
@@ -2290,10 +2347,12 @@ function setMemoHead(){
 
 function renderMemoView(q, currentMember){
   document.body.classList.remove('petty-mode');
+  document.body.classList.remove('sec-todo-mode');
   document.body.classList.add('memo-mode');
+  hideSecretaryToggle();
   setMemoHead();
-  // 只取備忘錄
-  var data = cases.filter(c=>c.isMemo);
+  // 只取「經理」的備忘錄（排除秘書的待辦）
+  var data = cases.filter(c=>c.isMemo && c.memoOwner==='manager');
   // 搜尋：待辦事項 + 詳細說明（疊加）
   if(q) data = data.filter(function(c){
     return (c.name||'').toLowerCase().includes(q) || (c.desc||'').toLowerCase().includes(q);
@@ -2370,6 +2429,116 @@ function setMemoTagFilter(key){
   renderCases();
 }
 
+// ══════════════════════════════════════════════════════════════
+// 秘書頁面：切換（秘書待辦 / 律師案件管理）
+// ══════════════════════════════════════════════════════════════
+function setSecretaryTab(tab){
+  secretaryTab = tab;
+  commitActiveCell();
+  // 離開多選
+  if(selectMode){ selectMode=false; selectedCaseIds=[];
+    var msb=document.getElementById('multiSelectBar'); if(msb) msb.style.display='none';
+    document.body.classList.remove('select-mode-on');
+  }
+  renderCases();
+}
+// 切換鈕列（兩個頁面都放，顯示在標題旁）——放進 page-title 容器後面
+function renderSecretaryToggle(){
+  var host=document.getElementById('secretaryToggle');
+  if(!host){
+    // 第一次：在 viewTitle 後面插一個容器
+    var vt=document.getElementById('viewTitle');
+    if(vt && vt.parentNode){
+      host=document.createElement('span');
+      host.id='secretaryToggle';
+      host.style.cssText='display:inline-flex;gap:8px;margin-left:16px;vertical-align:middle';
+      vt.parentNode.insertBefore(host, vt.nextSibling);
+    }
+  }
+  if(!host) return;
+  host.style.display='inline-flex';
+  var mk=function(tab,label){
+    var on=(secretaryTab===tab);
+    return '<button onclick="setSecretaryTab(\''+tab+'\')" style="padding:6px 16px;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;'+
+      (on?'background:rgba(201,168,76,0.18);color:var(--gold);border:1px solid var(--bd-b);font-weight:700;'
+         :'background:transparent;color:var(--tm);border:1px solid var(--bd);')+'">'+label+'</button>';
+  };
+  host.innerHTML = mk('todo','秘書待辦事項') + mk('cases','律師案件管理');
+}
+function hideSecretaryToggle(){
+  var host=document.getElementById('secretaryToggle');
+  if(host) host.style.display='none';
+}
+
+// 秘書待辦專屬表頭（無標籤，待辦欄拉長）
+function setSecretaryTodoHead(){
+  var thead = document.getElementById('caseHead');
+  if(!thead) return;
+  if(_ORIG_CASE_HEAD_HTML === null){ _ORIG_CASE_HEAD_HTML = thead.innerHTML; }
+  thead.setAttribute('data-mode','sectodo');
+  thead.innerHTML =
+    '<tr>' +
+      '<th id="secCheckboxHeaderCell" class="checkbox-col" style="width:36px;'+(selectMode?'':'display:none')+'">&nbsp;</th>' +
+      '<th style="width:390px">待辦事項</th>' +
+      '<th style="width:120px;text-align:center">截止日</th>' +
+      '<th>詳細說明</th>' +
+      '<th style="width:44px"></th>' +
+    '</tr>';
+}
+
+function renderSecretaryTodoView(q, currentMember){
+  document.body.classList.remove('petty-mode');
+  document.body.classList.add('memo-mode'); // 沿用備忘錄的手機/平板卡片樣式
+  document.body.classList.add('sec-todo-mode'); // 秘書待辦（無標籤）專用微調
+  setSecretaryTodoHead();
+  renderSecretaryToggle();
+  // 只取「秘書」的待辦
+  var data = cases.filter(c=>c.isMemo && c.memoOwner==='secretary');
+  if(q) data = data.filter(function(c){
+    return (c.name||'').toLowerCase().includes(q) || (c.desc||'').toLowerCase().includes(q);
+  });
+  // 照截止日排序（早的在上，沒填的最後）
+  data.sort(function(a,b){
+    var da=a.deadline||'', db=b.deadline||'';
+    if(!da && !db) return 0;
+    if(!da) return 1;
+    if(!db) return -1;
+    return da < db ? -1 : (da > db ? 1 : 0);
+  });
+
+  var viewTitleEl = document.getElementById('viewTitle');
+  if(viewTitleEl) viewTitleEl.textContent = currentMember.name;
+
+  // 上方：只放「＋新增待辦事項」按鈕（無標籤格）
+  document.getElementById('typeStatsRow').innerHTML =
+    '<div class="memo-stat-box">' +
+      '<button class="tn-btn tn-add" onclick="addNewSecretaryTodo()"><i class="ti ti-plus"></i> <span class="lbl-full">新增待辦事項</span><span class="lbl-short">新增</span></button></div>';
+  document.getElementById('statsRow').innerHTML = '';
+
+  var body = document.getElementById('caseBody');
+  if(!data.length){
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:44px;color:var(--tm)">'+(q?'沒有符合的待辦事項':'點擊「＋新增」開始')+'</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map(function(c){
+    var trClass = (selectMode?'select-row':'') + (selectedCaseIds.includes(c.id)?' row-selected':'');
+    return '<tr class="'+trClass+'" data-case-id="'+c.id+'">' +
+      '<td class="checkbox-col tr1-cell" style="'+(selectMode?'':'display:none')+'">' +
+        '<div class="cw" style="justify-content:center"><input type="checkbox" class="case-checkbox" data-id="'+c.id+'" '+(selectedCaseIds.includes(c.id)?'checked':'')+' style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;pointer-events:none"></div></td>' +
+      '<td class="ed" data-id="'+c.id+'" data-field="name" onclick="activateTextCell(this,\''+c.id+'\',\'name\')" style="width:390px">' +
+        '<div class="cw"><span class="ct'+(!c.name?' cm':'')+'" style="white-space:pre-wrap;word-break:break-word;line-height:1.4">'+(c.name?(window.innerWidth<=1024?c.name.replace(/[\n\r]+/g,' ').trim():c.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—')+'</span></div></td>' +
+      '<td class="date-cell ed" onclick="openCalendar(event,\''+c.id+'\',\'deadline\')">' +
+        '<div class="cw" style="justify-content:center"><span class="'+dlClsSmart(c.deadline)+'" style="'+dateStyle(c.deadline)+'">'+(fmtDateSmart(c.deadline)||'<span class="cm">—</span>')+'</span></div></td>' +
+      '<td class="ed desc-cell" data-id="'+c.id+'" data-field="desc" onclick="handleDescCellClick(event,this,\''+c.id+'\')">' +
+        '<div class="cw"><span class="ct'+(!c.desc?' cm':'')+'" style="white-space:pre-wrap;line-height:1.5;word-break:break-word">'+(c.desc?c.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'—')+'</span></div></td>' +
+      '<td style="text-align:center">' +
+        '<button class="del-btn" onclick="deleteRow(\''+c.id+'\')" title="刪除"><i class="ti ti-trash"></i></button></td>' +
+    '</tr>';
+  }).join('');
+  attachRowSelectListeners();
+  updateSelectedCountLabel();
+}
+
 // ── 列表內：點標籤格跳出可複選 popup（照搬負責人 popup 邏輯）──
 let memoTagPopupCaseId = null;
 function closeMemoTagPopup(){
@@ -2430,7 +2599,9 @@ function toggleMemoTag(key){
 }
 
 // 新增待辦事項（照搬新增案件視窗，簡化為：待辦事項/標籤/截止日/詳細說明）
+var memoModalOwner='manager'; // 這次新增的待辦是誰的：manager（經理）或 secretary（秘書）
 function addNewMemo(){
+  memoModalOwner='manager';
   editingCaseId=null;
   memoModalTags=[];  // 新增視窗暫存已勾標籤
   document.getElementById('memoModalTitle').textContent='新增待辦事項';
@@ -2439,7 +2610,23 @@ function addNewMemo(){
   document.getElementById('moDeadlineLabel').textContent='未選擇';
   document.getElementById('moDeadlineLabel').style.color='var(--tm)';
   document.getElementById('moDesc').value='';
+  document.getElementById('memoModalTagRow').style.display=''; // 經理有標籤
   renderMemoModalTagCheckboxes();
+  document.getElementById('memoModal').classList.add('show');
+  document.getElementById('moName').focus();
+}
+// 秘書新增待辦（沒有標籤）
+function addNewSecretaryTodo(){
+  memoModalOwner='secretary';
+  editingCaseId=null;
+  memoModalTags=[];
+  document.getElementById('memoModalTitle').textContent='新增待辦事項';
+  document.getElementById('moName').value='';
+  document.getElementById('moDeadline').value='';
+  document.getElementById('moDeadlineLabel').textContent='未選擇';
+  document.getElementById('moDeadlineLabel').style.color='var(--tm)';
+  document.getElementById('moDesc').value='';
+  document.getElementById('memoModalTagRow').style.display='none'; // 秘書沒有標籤
   document.getElementById('memoModal').classList.add('show');
   document.getElementById('moName').focus();
 }
@@ -2468,10 +2655,11 @@ function saveMemoModal(){
   var obj={
     name:name,
     isMemo:true,
+    memoOwner:memoModalOwner,
     status:'progress',
     deadline:document.getElementById('moDeadline').value||null,
     desc:document.getElementById('moDesc').value||'',
-    memoTags:memoModalTags.slice()
+    memoTags: memoModalOwner==='secretary' ? [] : memoModalTags.slice()
   };
   closeMemoModal();
   var newMemo=Object.assign({id:'tmp_'+uid()}, obj);
@@ -2515,7 +2703,9 @@ function setPettyHead(){
 
 function renderPettyView(q){
   document.body.classList.remove('memo-mode');
+  document.body.classList.remove('sec-todo-mode');
   document.body.classList.add('petty-mode');
+  hideSecretaryToggle();
   setPettyHead();
 
   // 動態標題
@@ -3385,7 +3575,7 @@ function dragEnd(e){
     </div>
     <div class="mbody">
       <div class="fg"><label class="flabel">待辦事項</label><input class="finput" id="moName"></div>
-      <div class="fg"><label class="flabel">標籤（可複選）</label>
+      <div class="fg" id="memoModalTagRow"><label class="flabel">標籤（可複選）</label>
         <div id="memoTagCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-wrap:wrap;gap:10px 16px;"></div>
       </div>
       <div class="fg">
