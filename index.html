@@ -1341,6 +1341,12 @@ function isOpsManagerView(){
 }
 // 特殊功能人員（秘書=行政篩選、經理=備忘錄）——不當案件負責人，負責人選單要排除
 function isSpecialMember(name){ return name==='秘書' || name==='經理'; }
+// 人員頁籤顏色：律師→藍、秘書→粉紅、其他（所長督辦/經理）→金
+function memberColor(name){
+  if(name==='秘書') return '#EE82A0';            // 玫瑰粉
+  if(name && name.indexOf('律師')>=0) return '#7DC3F7'; // 藍（跟負責人標籤一樣）
+  return '#C9A84C';                              // 金（所長督辦、經理）
+}
 // 由 key 取標籤物件 / 顏色 / 名稱
 function memoTagByKey(k){ return MEMO_TAGS.find(t=>t.key===k) || null; }
 // 依標籤顏色產生半透明底色（用於 chip 背景）
@@ -1635,17 +1641,19 @@ function renderSidebar(){
   items.innerHTML=members.map(m=>{
     const cnt=cases.filter(c=>!c.isMemo && (c.personIds||[]).includes(m.id)).length;
     const isActive=m.id===currentMemberId;
+    const col=memberColor(m.name);
     return `<button class="tn-btn tn-member${isActive?' active':''}"
       draggable="true"
       data-mid="${m.id}"
       data-mname="${m.name}"
+      style="color:${col}"
       onclick="selectMember('${m.id}')"
       ondragstart="dragStart(event,'${m.id}')"
       ondragover="dragOver(event)"
       ondragleave="dragLeave(event)"
       ondrop="dragDrop(event,'${m.id}')"
       ondragend="dragEnd(event)">
-      <div class="m-avatar">${m.name.charAt(0)}</div>
+      <div class="m-avatar" style="color:${col};background:${hexToRgba(col,0.18)}">${m.name.charAt(0)}</div>
       <span>${m.name}</span>
       <span class="m-count">${cnt}</span>
       <button class="m-edit" onclick="event.stopPropagation();openEditMember('${m.id}')" title="編輯"><i class="ti ti-dots"></i></button>
@@ -1655,6 +1663,12 @@ function renderSidebar(){
   allBtn.className='tn-btn'+((currentMemberId===null && !pettyView)?' active':'');
   const pettyBtn=document.getElementById('pettyItem');
   if(pettyBtn) pettyBtn.className='tn-btn'+(pettyView?' active':'');
+  // 頁面標題顏色：跟著目前選的人員（秘書粉紅、律師藍、其他金）；零用金/全部案件維持金
+  var vt=document.getElementById('viewTitle');
+  if(vt){
+    var cm = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
+    vt.style.color = (cm && !pettyView) ? memberColor(cm.name) : 'var(--gold)';
+  }
 }
 
 function selectAll(){
@@ -2457,13 +2471,13 @@ function renderSecretaryToggle(){
   }
   if(!host) return;
   host.style.display='inline-flex';
-  var mk=function(tab,label){
+  var mk=function(tab,label,col){
     var on=(secretaryTab===tab);
     return '<button onclick="setSecretaryTab(\''+tab+'\')" style="padding:6px 16px;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;'+
-      (on?'background:rgba(201,168,76,0.18);color:var(--gold);border:1px solid var(--bd-b);font-weight:700;'
+      (on?('background:'+hexToRgba(col,0.16)+';color:'+col+';border:1px solid '+hexToRgba(col,0.45)+';font-weight:700;')
          :'background:transparent;color:var(--tm);border:1px solid var(--bd);')+'">'+label+'</button>';
   };
-  host.innerHTML = mk('todo','秘書待辦事項') + mk('cases','律師案件管理');
+  host.innerHTML = mk('todo','秘書待辦事項','#EE82A0') + mk('cases','律師案件管理','#7DC3F7');
 }
 function hideSecretaryToggle(){
   var host=document.getElementById('secretaryToggle');
