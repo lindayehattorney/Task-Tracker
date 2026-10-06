@@ -500,10 +500,12 @@ tbody tr:hover .del-btn{opacity:1;}
   /* 截止日：置中，標籤「截止日」 */
   body.memo-mode tbody td:nth-child(4) .cw { justify-content: center; }
   body.memo-mode tbody td:nth-child(4)::before { content: "截止日"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; text-align: center; }
-  /* 標籤：置左、chip 橫向排列，標籤「標籤」 */
-  body.memo-mode tbody td:nth-child(3)::before { content: "標籤"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; }
+  /* 標籤：置中、chip 橫向排列，標籤「標籤」 */
+  body.memo-mode tbody td:nth-child(3) { text-align: center; }
+  body.memo-mode tbody td:nth-child(3)::before { content: "標籤"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; text-align: center; }
+  body.memo-mode tbody td:nth-child(3) .cw { display: flex !important; justify-content: center !important; }
   body.memo-mode tbody td:nth-child(3) .cw > div {
-    flex-direction: row !important; flex-wrap: wrap; gap: 5px !important;
+    flex-direction: row !important; flex-wrap: wrap; gap: 5px !important; justify-content: center !important; width: 100%;
   }
   /* 詳細說明：完整文字、上分隔線，標籤「詳細說明」 */
   body.memo-mode tbody td:nth-child(5) {
@@ -948,7 +950,7 @@ html.is-ipad .modal { width: 72vw !important; max-width: 620px; }
 html.is-ipad body.memo-mode tbody tr:has(td.checkbox-col) {
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr !important;
   grid-template-areas:
-    "mname  mtags  mtags  mtags  mtags"
+    "mname  mname  mname  mtags  mtags"
     "mddl   mdesc  mdesc  mdesc  mdesc" !important;
   align-items: stretch !important;
 }
