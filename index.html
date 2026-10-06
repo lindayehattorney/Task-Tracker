@@ -1646,15 +1646,13 @@ function renderSidebar(){
       draggable="true"
       data-mid="${m.id}"
       data-mname="${m.name}"
-      style="color:${col}"
       onclick="selectMember('${m.id}')"
       ondragstart="dragStart(event,'${m.id}')"
       ondragover="dragOver(event)"
       ondragleave="dragLeave(event)"
       ondrop="dragDrop(event,'${m.id}')"
       ondragend="dragEnd(event)">
-      <div class="m-avatar" style="color:${col};background:${hexToRgba(col,0.18)}">${m.name.charAt(0)}</div>
-      <span>${m.name}</span>
+      <span style="color:${col}">${m.name}</span>
       <span class="m-count">${cnt}</span>
       <button class="m-edit" onclick="event.stopPropagation();openEditMember('${m.id}')" title="編輯"><i class="ti ti-dots"></i></button>
     </button>`;
