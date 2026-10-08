@@ -159,6 +159,15 @@ td.ed .cw{cursor:pointer;}
 .bg:hover{background:rgba(201,168,76,0.08);color:var(--t1);}
 .bda{background:rgba(226,75,74,0.12);border:1px solid rgba(226,75,74,0.3);color:#FF7B7A;}
 .bda:hover{background:rgba(226,75,74,0.22);}
+/* 重新整理按鈕（整理 + 更新於 時間，兼指示燈）*/
+.sync-btn{gap:7px;}
+.sync-ico{color:var(--gold);font-size:15px;}
+.sync-stamp{font-size:12px;color:var(--tm);}
+@keyframes sync-spin{to{transform:rotate(360deg);}}
+.sync-btn.syncing .sync-ico{animation:sync-spin .8s linear infinite;}
+.sync-btn.syncing .sync-stamp{color:var(--gold);}
+.sync-btn.synced .sync-ico{color:#5FC98E;}
+.sync-btn.synced .sync-stamp{color:#5FC98E;}
 .bico{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;}
 .del-btn{opacity:0.7;background:none;border:none;color:#FF7B7A;cursor:pointer;padding:4px;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 tbody tr:hover .del-btn{opacity:1;}
@@ -756,6 +765,9 @@ tr.select-row.row-selected:hover {
 
 @media (max-width: 768px) {
   .select-mode-label { display: none; }
+  /* 手機/小平板：重新整理收成純圖示（跟多選、垃圾桶一致）*/
+  .sync-stamp { display: none !important; }
+  .sync-btn { padding: 6px 9px; }
 }
 
 
@@ -1159,6 +1171,7 @@ html.is-ipad tbody tr td[data-field="name"] textarea {
             <i class="ti ti-search" style="font-size:14px;color:var(--tm)"></i>
             <input type="text" id="searchInput" oninput="renderCases()">
           </div>
+          <button class="btn bg sync-btn" id="refreshBtn" onclick="manualRefresh()" title="重新整理"><i class="ti ti-refresh sync-ico"></i><span class="sync-stamp" id="syncStamp">更新中…</span></button>
           <button class="btn bg" id="selectModeBtn" onclick="toggleSelectMode()" title="多選"><i class="ti ti-checkbox"></i> <span class="select-mode-label">多選</span></button>
           <button class="btn bg" onclick="openTrash()" title="垃圾桶"><i class="ti ti-trash"></i> <span class="select-mode-label">垃圾桶</span></button>
         </div>
@@ -1427,6 +1440,7 @@ function loadData(){
     selectedCaseIds = [];
     renderSidebar();
     renderCases();
+    updateSyncStamp();
   });
 }
 
@@ -1561,6 +1575,54 @@ function setupRealtime(){
       console.log('Realtime:', status);
     });
 }
+
+// ── 資料同步：更新時間戳、手動重新整理、回到畫面自動重整 ──
+function updateSyncStamp(){
+  var el=document.getElementById('syncStamp');
+  if(!el) return;
+  var n=new Date();
+  var hh=String(n.getHours()).padStart(2,'0');
+  var mm=String(n.getMinutes()).padStart(2,'0');
+  el.textContent='更新於 '+hh+':'+mm;
+}
+// 自動重整的安全閘：正在編輯、多選、或有視窗開著時不要打斷
+function canAutoRefresh(){
+  if(!currentRole) return false;                         // 還沒登入
+  if(activeCell) return false;                           // 正在編輯某格
+  if(selectMode) return false;                           // 多選模式中
+  if(document.querySelector('.overlay.show')) return false; // 有彈窗開著
+  return true;
+}
+// 手動按下重新整理（使用者主動，忽略安全閘）
+var _syncResetTimer=null;
+function manualRefresh(){
+  var btn=document.getElementById('refreshBtn');
+  var stamp=document.getElementById('syncStamp');
+  if(btn){ btn.classList.remove('synced'); btn.classList.add('syncing'); }
+  if(stamp) stamp.textContent='更新中…';
+  loadData().then(function(){
+    if(btn){
+      btn.classList.remove('syncing');
+      btn.classList.add('synced');
+      if(stamp) stamp.textContent='已是最新 ✓';
+      clearTimeout(_syncResetTimer);
+      _syncResetTimer=setTimeout(function(){
+        if(btn) btn.classList.remove('synced');
+        updateSyncStamp();
+      },1300);
+    }
+  });
+}
+// 背景自動重整（回到畫面 / 重新聚焦 / 輕量輪詢），過安全閘才抓
+function autoRefresh(){ if(canAutoRefresh()) loadData(); }
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible') autoRefresh();
+});
+window.addEventListener('focus', autoRefresh);
+// 萬一 Realtime 連線斷掉的保險：每 60 秒、且畫面在前景時，靜靜抓一次最新
+setInterval(function(){
+  if(document.visibilityState==='visible') autoRefresh();
+}, 60000);
 let statusTarget=null; // {caseId}
 let calTarget=null;    // {caseId, field} or {modal:true, field}
 let calYear=0, calMonth=0;
