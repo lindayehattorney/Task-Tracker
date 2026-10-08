@@ -60,8 +60,10 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-divider{width:1px;height:24px;background:var(--bd);flex-shrink:0;margin:0 4px;}
 .tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
-/* 員工身分：藏掉「營運經理」頁籤（紙門，僅前端遮蔽）*/
+/* 員工身分：藏掉「經理」「葉律師」「秘書」頁籤（紙門，僅前端遮蔽）*/
 body.role-staff .tn-member[data-mname="經理"]{display:none !important;}
+body.role-staff .tn-member[data-mname="葉律師"]{display:none !important;}
+body.role-staff .tn-member[data-mname="秘書"]{display:none !important;}
 /* 員工身分：不能編輯/刪除/新增人員 → 藏「⋯」編輯鈕與「＋」新增人員鈕
    （m-edit 是巢狀 button，被解析成 memberItems 的直接子元素）*/
 body.role-staff #memberItems .m-edit, body.role-staff .topnav .m-edit{display:none !important;}
@@ -1277,6 +1279,19 @@ const MEMO_TAGS = [
   {key:'hr',     label:'人資',   color:'#40A297'},
   {key:'other',  label:'其他',   color:'#F7C948'}
 ];
+// 葉律師（主持律師）專屬標籤
+const YEH_TAGS = [
+  {key:'line',    label:'LINE',     color:'#5FC98E'},
+  {key:'whatsapp',label:'WhatsApp', color:'#4FC8D6'},
+  {key:'email',   label:'Email',    color:'#7DC3F7'},
+  {key:'phone',   label:'電話',     color:'#E8955A'},
+  {key:'court',   label:'開庭',     color:'#E86B6B'},
+  {key:'review',  label:'審閱',     color:'#B98FE0'}
+];
+// 兩套標籤的 key 不重疊，合併後可依 key 查到正確顏色/名稱
+const ALL_MEMO_TAGS = MEMO_TAGS.concat(YEH_TAGS);
+let memoActiveOwner = 'manager'; // 目前備忘錄頁屬於誰：manager（經理）或 yeh（葉律師）
+function currentMemoTagSet(){ return memoActiveOwner==='yeh' ? YEH_TAGS : MEMO_TAGS; }
 let memoTagFilter = null; // 標籤篩選（一次一個，OR）
 
 // ── 零用金 ──
@@ -1342,15 +1357,16 @@ function isOpsManagerView(){
   return !!(m && m.name==='經理');
 }
 // 特殊功能人員（秘書=行政篩選、經理=備忘錄）——不當案件負責人，負責人選單要排除
-function isSpecialMember(name){ return name==='秘書' || name==='經理'; }
+function isSpecialMember(name){ return name==='秘書' || name==='經理' || name==='葉律師'; }
 // 人員頁籤顏色：律師→藍、秘書→粉紅、其他（所長督辦/經理）→金
 function memberColor(name){
   if(name==='秘書') return '#EE82A0';            // 玫瑰粉
+  if(name==='葉律師') return '#B98FE0';          // 紫（主持律師，須在「律師→藍」之前）
   if(name && name.indexOf('律師')>=0) return '#7DC3F7'; // 藍（跟負責人標籤一樣）
   return '#C9A84C';                              // 金（所長督辦、經理）
 }
 // 由 key 取標籤物件 / 顏色 / 名稱
-function memoTagByKey(k){ return MEMO_TAGS.find(t=>t.key===k) || null; }
+function memoTagByKey(k){ return ALL_MEMO_TAGS.find(t=>t.key===k) || null; }
 // 依標籤顏色產生半透明底色（用於 chip 背景）
 function hexToRgba(hex, a){
   var h = hex.replace('#','');
@@ -1361,8 +1377,8 @@ function hexToRgba(hex, a){
 function renderMemoTagChips(c){
   var keys = c.memoTags || [];
   if(!keys.length) return '<span class="cm">—</span>';
-  // 照 MEMO_TAGS 順序排，避免順序亂跳
-  var ordered = MEMO_TAGS.filter(t=>keys.includes(t.key));
+  // 照合併標籤順序排，避免順序亂跳（經理 + 葉律師兩套都涵蓋）
+  var ordered = ALL_MEMO_TAGS.filter(t=>keys.includes(t.key));
   return '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+ordered.map(function(t){
     return '<span class="tagchip" style="color:'+t.color+';background:'+hexToRgba(t.color,0.12)+';border:1px solid '+hexToRgba(t.color,0.30)+'">'+t.label+'</span>';
   }).join('')+'</div>';
@@ -1586,7 +1602,7 @@ function applyRolePermissions(){
   // 若員工目前正停在營運經理頁面，踢回全部案件（保險）
   if(isStaff && currentMemberId){
     var m=members.find(function(x){return x.id===currentMemberId;});
-    if(m && m.name==='經理'){ selectAll(); }
+    if(m && (m.name==='經理' || m.name==='葉律師' || m.name==='秘書')){ selectAll(); }
   }
 }
 function logout(){
@@ -1684,8 +1700,8 @@ function selectAll(){
 function selectMember(id){
   const m=members.find(x=>x.id===id);
   if(!m) return;
-  // 員工不能進營運經理頁面（紙門防護）
-  if(currentRole==='staff' && m.name==='經理'){ selectAll(); return; }
+  // 員工不能進經理／葉律師／秘書頁面（紙門防護）
+  if(currentRole==='staff' && (m.name==='經理' || m.name==='葉律師' || m.name==='秘書')){ selectAll(); return; }
   if(m.name==='秘書'){ secretaryTab='todo'; } // 每次進秘書頁面預設「待辦事項」
   currentMemberId=id;
   pettyView=false;      // 離開零用金
@@ -2176,8 +2192,8 @@ function renderCases(){
   }
   // 判斷目前選的負責人
   var currentMember = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
-  // ── 營運經理備忘錄：走完全不同的渲染路徑 ──
-  if(currentMember && currentMember.name==='經理'){
+  // ── 備忘錄（經理 / 葉律師）：走完全不同的渲染路徑 ──
+  if(currentMember && (currentMember.name==='經理' || currentMember.name==='葉律師')){
     renderMemoView(q, currentMember);
     return;
   }
@@ -2365,8 +2381,13 @@ function renderMemoView(q, currentMember){
   document.body.classList.add('memo-mode');
   hideSecretaryToggle();
   setMemoHead();
-  // 只取「經理」的備忘錄（排除秘書的待辦）
-  var data = cases.filter(c=>c.isMemo && c.memoOwner==='manager');
+  // 判斷此備忘錄頁屬於誰（經理 or 葉律師），決定資料與標籤組
+  memoActiveOwner = (currentMember.name==='葉律師') ? 'yeh' : 'manager';
+  var TAGS = currentMemoTagSet();
+  // 切換不同人的備忘錄時，若篩選標籤不屬於這組，就重置
+  if(memoTagFilter && !TAGS.some(function(t){return t.key===memoTagFilter;})) memoTagFilter=null;
+  // 只取這個人的備忘錄
+  var data = cases.filter(c=>c.isMemo && c.memoOwner===memoActiveOwner);
   // 搜尋：待辦事項 + 詳細說明（疊加）
   if(q) data = data.filter(function(c){
     return (c.name||'').toLowerCase().includes(q) || (c.desc||'').toLowerCase().includes(q);
@@ -2401,13 +2422,13 @@ function renderMemoView(q, currentMember){
   document.getElementById('typeStatsRow').innerHTML =
     '<div class="memo-stat-box">' +
       '<button class="tn-btn tn-add" onclick="addNewMemo()"><i class="ti ti-plus"></i> <span class="lbl-full">新增待辦事項</span><span class="lbl-short">新增</span></button></div>' +
-    tagCell(MEMO_TAGS[0]) + tagCell(MEMO_TAGS[1]) + tagCell(MEMO_TAGS[2]);
+    tagCell(TAGS[0]) + tagCell(TAGS[1]) + tagCell(TAGS[2]);
   // 下排
   var allActive = (memoTagFilter===null);
   document.getElementById('statsRow').innerHTML =
     '<div class="memo-stat-box stat-clickable'+(allActive?' stat-active':'')+'" onclick="setMemoTagFilter(null)">' +
       '<span class="memo-tag-lbl" style="color:var(--t1)"><span class="lbl-full">全部待辦事項</span><span class="lbl-short">全部</span></span></div>' +
-    tagCell(MEMO_TAGS[3]) + tagCell(MEMO_TAGS[4]) + tagCell(MEMO_TAGS[5]);
+    tagCell(TAGS[3]) + tagCell(TAGS[4]) + tagCell(TAGS[5]);
 
   // ── 列表：待辦事項 → 標籤 → 截止日 → 詳細說明 → 刪除 ──
   var body = document.getElementById('caseBody');
@@ -2569,7 +2590,7 @@ function openMemoTagPopup(e, caseId){
   var c=cases.find(x=>x.id===caseId);
   var selected=c.memoTags||[];
   var list=document.getElementById('memoTagPopupList');
-  list.innerHTML=MEMO_TAGS.map(function(t){
+  list.innerHTML=currentMemoTagSet().map(function(t){
     var on=selected.includes(t.key);
     return '<div class="sp-item" onclick="toggleMemoTag(\''+t.key+'\')" id="mtp_'+t.key+'">' +
       '<div class="pp-box" style="width:16px;height:16px;border-radius:4px;border:1.5px solid var(--bd-b);display:flex;align-items:center;justify-content:center;flex-shrink:0;'+(on?'background:'+t.color+';border-color:'+t.color:'')+'">' +
@@ -2615,7 +2636,7 @@ function toggleMemoTag(key){
 // 新增待辦事項（照搬新增案件視窗，簡化為：待辦事項/標籤/截止日/詳細說明）
 var memoModalOwner='manager'; // 這次新增的待辦是誰的：manager（經理）或 secretary（秘書）
 function addNewMemo(){
-  memoModalOwner='manager';
+  memoModalOwner = (memoActiveOwner==='yeh') ? 'yeh' : 'manager';
   editingCaseId=null;
   memoModalTags=[];  // 新增視窗暫存已勾標籤
   document.getElementById('memoModalTitle').textContent='新增待辦事項';
@@ -2648,7 +2669,8 @@ function addNewSecretaryTodo(){
 let memoModalTags=[];
 function renderMemoModalTagCheckboxes(){
   var box=document.getElementById('memoTagCheckboxes');
-  box.innerHTML=MEMO_TAGS.map(function(t){
+  var TAGS=(memoModalOwner==='yeh')?YEH_TAGS:MEMO_TAGS;
+  box.innerHTML=TAGS.map(function(t){
     var on=memoModalTags.includes(t.key);
     return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:'+t.color+';font-weight:600" onclick="event.preventDefault();toggleMemoModalTag(\''+t.key+'\')">' +
       '<input type="checkbox" '+(on?'checked':'')+' style="accent-color:'+t.color+';width:14px;height:14px;pointer-events:none">' +
