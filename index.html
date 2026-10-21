@@ -60,10 +60,9 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-divider{width:1px;height:24px;background:var(--bd);flex-shrink:0;margin:0 4px;}
 .tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
-/* 員工身分：藏掉「經理」「葉律師」「秘書」頁籤（紙門，僅前端遮蔽）*/
+/* 員工身分：藏掉「經理」「葉律師」頁籤（紙門，僅前端遮蔽）；秘書與律師同層，員工可見 */
 body.role-staff .tn-member[data-mname="經理"]{display:none !important;}
 body.role-staff .tn-member[data-mname="葉律師"]{display:none !important;}
-body.role-staff .tn-member[data-mname="秘書"]{display:none !important;}
 /* 員工身分：不能編輯/刪除/新增人員 → 藏「⋯」編輯鈕與「＋」新增人員鈕
    （m-edit 是巢狀 button，被解析成 memberItems 的直接子元素）*/
 body.role-staff #memberItems .m-edit, body.role-staff .topnav .m-edit{display:none !important;}
@@ -1636,24 +1635,34 @@ function showApp(){
   app.style.height='100vh';
   loadData().then(function(){ setupRealtime(); cleanupOldTrash(); });
 }
+// 帳號（email）對應的身分：老闆看全部、員工看不到經理/葉律師
+var ACCOUNT_ROLES = {
+  'contact@lindaattorney.com':'boss',
+  'device@lindaattorney.com':'staff'
+};
+function roleFromEmail(email){
+  return ACCOUNT_ROLES[(email||'').trim().toLowerCase()] || null;
+}
 function doLogin(){
   var u=document.getElementById('lu').value.trim();
   var p=document.getElementById('lp').value;
-  var role=null;
-  if(u==='admin'&&p==='ManagerHsia'){ role='boss'; }      // 老闆：看全部
-  else if(u==='admin'&&p==='OfficeD2024'){ role='staff'; } // 員工：看不到營運經理
-  if(role){
-    // 記住30天
-    var expiry=Date.now()+(30*24*60*60*1000);
-    localStorage.setItem('yl_login_token','VALID');
-    localStorage.setItem('yl_login_expiry',expiry.toString());
-    localStorage.setItem('yl_login_role',role);
-    currentRole=role;
+  var btn=document.querySelector('#loginScreen .bp2');
+  if(btn){ btn.disabled=true; btn.textContent='登入中…'; }
+  // 交給 Supabase 驗證（密碼不再寫在網頁裡）
+  _SB.auth.signInWithPassword({ email:u, password:p }).then(function(res){
+    if(btn){ btn.disabled=false; btn.textContent='登入系統'; }
+    if(res.error || !res.data || !res.data.session){
+      alert('帳號或密碼錯誤');
+      return;
+    }
+    var email = (res.data.user && res.data.user.email) || u;
+    currentRole = roleFromEmail(email) || 'staff'; // 認不出的帳號保守當員工
     applyRolePermissions();
     showApp();
-  } else {
-    alert('帳號或密碼錯誤');
-  }
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='登入系統'; }
+    alert('登入發生問題，請稍後再試');
+  });
 }
 // 目前登入身分：'boss'（老闆，看全部）或 'staff'（員工，看不到營運經理）
 var currentRole=null;
@@ -1664,34 +1673,38 @@ function applyRolePermissions(){
   // 若員工目前正停在營運經理頁面，踢回全部案件（保險）
   if(isStaff && currentMemberId){
     var m=members.find(function(x){return x.id===currentMemberId;});
-    if(m && (m.name==='經理' || m.name==='葉律師' || m.name==='秘書')){ selectAll(); }
+    if(m && (m.name==='經理' || m.name==='葉律師')){ selectAll(); }
   }
 }
 function logout(){
-  localStorage.removeItem('yl_login_token');
-  localStorage.removeItem('yl_login_expiry');
-  localStorage.removeItem('yl_login_role');
-  currentRole=null;
-  document.body.classList.remove('role-staff');
-  if(_realtimeChannel) _SB.removeChannel(_realtimeChannel);
-  document.getElementById('app').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
-  document.getElementById('lu').value='';
-  document.getElementById('lp').value='';
+  var done=function(){
+    currentRole=null;
+    document.body.classList.remove('role-staff');
+    if(_realtimeChannel){ _SB.removeChannel(_realtimeChannel); _realtimeChannel=null; }
+    document.getElementById('app').style.display='none';
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('lu').value='';
+    document.getElementById('lp').value='';
+  };
+  // 清掉 Supabase 的登入憑證
+  if(_SB.auth && _SB.auth.signOut){ _SB.auth.signOut().finally(done); }
+  else { done(); }
 }
 document.addEventListener('DOMContentLoaded',()=>{
-  var token=localStorage.getItem('yl_login_token');
-  var expiry=localStorage.getItem('yl_login_expiry');
-  if(token==='VALID' && expiry && Date.now()<parseInt(expiry)){
-    currentRole=localStorage.getItem('yl_login_role')||'staff'; // 舊 session 沒記角色的，保守當員工
-    applyRolePermissions();
-    document.getElementById('loginScreen').style.display='none';
-    var app=document.getElementById('app');
-    app.style.display='flex';
-    app.style.flexDirection='column';
-    app.style.height='100vh';
-    loadData().then(function(){setupRealtime();});
-  }
+  // 還原 Supabase 既有登入狀態（憑證由 Supabase 自己記住、自動續期）
+  _SB.auth.getSession().then(function(res){
+    var session = res && res.data && res.data.session;
+    if(session && session.user){
+      currentRole = roleFromEmail(session.user.email) || 'staff';
+      applyRolePermissions();
+      document.getElementById('loginScreen').style.display='none';
+      var app=document.getElementById('app');
+      app.style.display='flex';
+      app.style.flexDirection='column';
+      app.style.height='100vh';
+      loadData().then(function(){ setupRealtime(); cleanupOldTrash(); });
+    }
+  });
   document.addEventListener('pointerdown', function(e){
     if(activeCell && !activeCell.input.contains(e.target) && !activeCell.td.contains(e.target)){
       commitActiveCell();
@@ -1763,7 +1776,7 @@ function selectMember(id){
   const m=members.find(x=>x.id===id);
   if(!m) return;
   // 員工不能進經理／葉律師／秘書頁面（紙門防護）
-  if(currentRole==='staff' && (m.name==='經理' || m.name==='葉律師' || m.name==='秘書')){ selectAll(); return; }
+  if(currentRole==='staff' && (m.name==='經理' || m.name==='葉律師')){ selectAll(); return; }
   if(m.name==='秘書'){ secretaryTab='todo'; } // 每次進秘書頁面預設「待辦事項」
   currentMemberId=id;
   pettyView=false;      // 離開零用金
