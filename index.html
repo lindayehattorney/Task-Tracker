@@ -60,9 +60,8 @@ body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--
 .tn-divider{width:1px;height:24px;background:var(--bd);flex-shrink:0;margin:0 4px;}
 .tn-break{display:none;}
 .tn-member{position:relative;border:1px solid transparent;}
-/* 員工身分：藏掉「經理」「葉律師」頁籤（紙門，僅前端遮蔽）；秘書與律師同層，員工可見 */
+/* 員工身分：只藏「經理」頁籤（紙門，僅前端遮蔽）；秘書、葉律師與律師同層，員工可見 */
 body.role-staff .tn-member[data-mname="經理"]{display:none !important;}
-body.role-staff .tn-member[data-mname="葉律師"]{display:none !important;}
 /* 員工身分：不能編輯/刪除/新增人員 → 藏「⋯」編輯鈕與「＋」新增人員鈕
    （m-edit 是巢狀 button，被解析成 memberItems 的直接子元素）*/
 body.role-staff #memberItems .m-edit, body.role-staff .topnav .m-edit{display:none !important;}
@@ -1673,7 +1672,7 @@ function applyRolePermissions(){
   // 若員工目前正停在營運經理頁面，踢回全部案件（保險）
   if(isStaff && currentMemberId){
     var m=members.find(function(x){return x.id===currentMemberId;});
-    if(m && (m.name==='經理' || m.name==='葉律師')){ selectAll(); }
+    if(m && m.name==='經理'){ selectAll(); }
   }
 }
 function logout(){
@@ -1776,7 +1775,7 @@ function selectMember(id){
   const m=members.find(x=>x.id===id);
   if(!m) return;
   // 員工不能進經理／葉律師／秘書頁面（紙門防護）
-  if(currentRole==='staff' && (m.name==='經理' || m.name==='葉律師')){ selectAll(); return; }
+  if(currentRole==='staff' && m.name==='經理'){ selectAll(); return; }
   if(m.name==='秘書'){ secretaryTab='todo'; } // 每次進秘書頁面預設「待辦事項」
   currentMemberId=id;
   pettyView=false;      // 離開零用金
