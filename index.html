@@ -512,6 +512,7 @@ tbody tr:hover .del-btn{opacity:1;}
   /* 標籤：置中、chip 橫向排列，標籤「標籤」 */
   body.memo-mode tbody td:nth-child(3) { text-align: center; }
   body.memo-mode tbody td:nth-child(3)::before { content: "標籤"; display: block; font-size: 13px; color: var(--tm); margin-bottom: 3px; text-align: center; }
+  body.memo-mode.memo-researcher tbody td:nth-child(3)::before { content: "負責人"; }
   body.memo-mode tbody td:nth-child(3) .cw { display: flex !important; justify-content: center !important; }
   body.memo-mode tbody td:nth-child(3) .cw > div {
     flex-direction: row !important; flex-wrap: wrap; gap: 5px !important; justify-content: center !important; width: 100%;
@@ -1299,10 +1300,23 @@ const YEH_TAGS = [
   {key:'court',   label:'開庭',     color:'#E86B6B'},
   {key:'review',  label:'審閱',     color:'#B98FE0'}
 ];
-// 兩套標籤的 key 不重疊，合併後可依 key 查到正確顏色/名稱
-const ALL_MEMO_TAGS = MEMO_TAGS.concat(YEH_TAGS);
-let memoActiveOwner = 'manager'; // 目前備忘錄頁屬於誰：manager（經理）或 yeh（葉律師）
-function currentMemoTagSet(){ return memoActiveOwner==='yeh' ? YEH_TAGS : MEMO_TAGS; }
+// 研究員專屬「負責人」標籤
+const RESEARCHER_TAGS = [
+  {key:'qiu',   label:'丘雅勻', color:'#7DC3F7'},
+  {key:'li',    label:'李冠緯', color:'#5FC98E'},
+  {key:'joint', label:'共同',   color:'#C9A84C'}
+];
+// 各套標籤的 key 不重疊，合併後可依 key 查到正確顏色/名稱
+const ALL_MEMO_TAGS = MEMO_TAGS.concat(YEH_TAGS).concat(RESEARCHER_TAGS);
+let memoActiveOwner = 'manager'; // 目前備忘錄頁屬於誰：manager（經理）、yeh（葉律師）、researcher（研究員）
+function tagSetForOwner(owner){
+  if(owner==='yeh') return YEH_TAGS;
+  if(owner==='researcher') return RESEARCHER_TAGS;
+  return MEMO_TAGS;
+}
+function currentMemoTagSet(){ return tagSetForOwner(memoActiveOwner); }
+// 備忘錄「標籤」欄位名稱：研究員頁改稱「負責人」，其餘維持「標籤」
+function currentTagLabel(){ return memoActiveOwner==='researcher' ? '負責人' : '標籤'; }
 let memoTagFilter = null; // 標籤篩選（一次一個，OR）
 
 // ── 零用金 ──
@@ -1369,11 +1383,12 @@ function isOpsManagerView(){
   return !!(m && m.name==='經理');
 }
 // 特殊功能人員（秘書=行政篩選、經理=備忘錄）——不當案件負責人，負責人選單要排除
-function isSpecialMember(name){ return name==='秘書' || name==='經理' || name==='葉律師'; }
+function isSpecialMember(name){ return name==='秘書' || name==='經理' || name==='葉律師' || name==='研究員'; }
 // 人員頁籤顏色：律師→藍、秘書→粉紅、其他（所長督辦/經理）→金
 function memberColor(name){
   if(name==='秘書') return '#EE82A0';            // 玫瑰粉
   if(name==='葉律師') return '#B98FE0';          // 紫（主持律師，須在「律師→藍」之前）
+  if(name==='研究員') return '#3DB39E';          // 青綠（研究員）
   if(name && name.indexOf('律師')>=0) return '#7DC3F7'; // 藍（跟負責人標籤一樣）
   return '#C9A84C';                              // 金（所長督辦、經理）
 }
@@ -2268,7 +2283,7 @@ function renderCases(){
   // 判斷目前選的負責人
   var currentMember = currentMemberId ? members.find(x=>x.id===currentMemberId) : null;
   // ── 備忘錄（經理 / 葉律師）：走完全不同的渲染路徑 ──
-  if(currentMember && (currentMember.name==='經理' || currentMember.name==='葉律師')){
+  if(currentMember && (currentMember.name==='經理' || currentMember.name==='葉律師' || currentMember.name==='研究員')){
     renderMemoView(q, currentMember);
     return;
   }
@@ -2443,7 +2458,7 @@ function setMemoHead(){
     '<tr>' +
       '<th id="memoCheckboxHeaderCell" class="checkbox-col" style="width:36px;'+(selectMode?'':'display:none')+'">&nbsp;</th>' +
       '<th style="width:280px">待辦事項</th>' +
-      '<th style="width:110px">標籤</th>' +
+      '<th style="width:110px">'+currentTagLabel()+'</th>' +
       '<th style="width:120px;text-align:center">截止日</th>' +
       '<th>詳細說明</th>' +
       '<th style="width:44px"></th>' +
@@ -2455,9 +2470,13 @@ function renderMemoView(q, currentMember){
   document.body.classList.remove('sec-todo-mode');
   document.body.classList.add('memo-mode');
   hideSecretaryToggle();
-  setMemoHead();
-  // 判斷此備忘錄頁屬於誰（經理 or 葉律師），決定資料與標籤組
-  memoActiveOwner = (currentMember.name==='葉律師') ? 'yeh' : 'manager';
+  // 判斷此備忘錄頁屬於誰（經理 / 葉律師 / 研究員），決定資料與標籤組
+  memoActiveOwner = (currentMember.name==='葉律師') ? 'yeh'
+                  : (currentMember.name==='研究員') ? 'researcher'
+                  : 'manager';
+  // 研究員頁把「標籤」欄改稱「負責人」（手機卡片 ::before 靠此 class 切換）
+  document.body.classList.toggle('memo-researcher', memoActiveOwner==='researcher');
+  setMemoHead(); // 須在設定 memoActiveOwner 之後，表頭才會用對欄名
   var TAGS = currentMemoTagSet();
   // 切換不同人的備忘錄時，若篩選標籤不屬於這組，就重置
   if(memoTagFilter && !TAGS.some(function(t){return t.key===memoTagFilter;})) memoTagFilter=null;
@@ -2489,6 +2508,7 @@ function renderMemoView(q, currentMember){
 
   // ── 兩排 8 格（固定同高）：上排=新增按鈕 + SEO/短影音/系統；下排=全部 + 財務/人資/其他 ──
   var tagCell = function(t){
+    if(!t) return '<div class="memo-stat-box" style="visibility:hidden"></div>'; // 標籤不足 6 個時用隱形格補滿，維持對齊
     var active = (memoTagFilter===t.key);
     return '<div class="memo-stat-box stat-clickable'+(active?' stat-active':'')+'" onclick="setMemoTagFilter(\''+t.key+'\')">' +
       '<span class="memo-tag-lbl" style="color:'+t.color+'">'+t.label+'</span></div>';
@@ -2664,6 +2684,7 @@ function openMemoTagPopup(e, caseId){
   if(isTabletOrMobileMode()){ document.getElementById('memoTagPopupBackdrop').style.display='block'; }
   var c=cases.find(x=>x.id===caseId);
   var selected=c.memoTags||[];
+  var ttl=document.getElementById('memoTagPopupTitle'); if(ttl) ttl.textContent='選擇'+currentTagLabel();
   var list=document.getElementById('memoTagPopupList');
   list.innerHTML=currentMemoTagSet().map(function(t){
     var on=selected.includes(t.key);
@@ -2711,7 +2732,7 @@ function toggleMemoTag(key){
 // 新增待辦事項（照搬新增案件視窗，簡化為：待辦事項/標籤/截止日/詳細說明）
 var memoModalOwner='manager'; // 這次新增的待辦是誰的：manager（經理）或 secretary（秘書）
 function addNewMemo(){
-  memoModalOwner = (memoActiveOwner==='yeh') ? 'yeh' : 'manager';
+  memoModalOwner = memoActiveOwner; // manager / yeh / researcher
   editingCaseId=null;
   memoModalTags=[];  // 新增視窗暫存已勾標籤
   document.getElementById('memoModalTitle').textContent='新增待辦事項';
@@ -2720,7 +2741,8 @@ function addNewMemo(){
   document.getElementById('moDeadlineLabel').textContent='未選擇';
   document.getElementById('moDeadlineLabel').style.color='var(--tm)';
   document.getElementById('moDesc').value='';
-  document.getElementById('memoModalTagRow').style.display=''; // 經理有標籤
+  document.getElementById('memoModalTagRow').style.display=''; // 經理/葉律師/研究員有標籤
+  var mtl=document.getElementById('memoModalTagLabel'); if(mtl) mtl.textContent=currentTagLabel()+'（可複選）';
   renderMemoModalTagCheckboxes();
   document.getElementById('memoModal').classList.add('show');
   document.getElementById('moName').focus();
@@ -2744,7 +2766,7 @@ function addNewSecretaryTodo(){
 let memoModalTags=[];
 function renderMemoModalTagCheckboxes(){
   var box=document.getElementById('memoTagCheckboxes');
-  var TAGS=(memoModalOwner==='yeh')?YEH_TAGS:MEMO_TAGS;
+  var TAGS=tagSetForOwner(memoModalOwner);
   box.innerHTML=TAGS.map(function(t){
     var on=memoModalTags.includes(t.key);
     return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:'+t.color+';font-weight:600" onclick="event.preventDefault();toggleMemoModalTag(\''+t.key+'\')">' +
@@ -3686,7 +3708,7 @@ function dragEnd(e){
     </div>
     <div class="mbody">
       <div class="fg"><label class="flabel">待辦事項</label><input class="finput" id="moName"></div>
-      <div class="fg" id="memoModalTagRow"><label class="flabel">標籤（可複選）</label>
+      <div class="fg" id="memoModalTagRow"><label class="flabel" id="memoModalTagLabel">標籤（可複選）</label>
         <div id="memoTagCheckboxes" style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;display:flex;flex-wrap:wrap;gap:10px 16px;"></div>
       </div>
       <div class="fg">
@@ -3750,7 +3772,7 @@ function dragEnd(e){
 <!-- Memo tag popup (inline multi-select) -->
 <div id="memoTagPopupBackdrop" style="display:none;position:fixed;inset:0;z-index:499;background:transparent;" onclick="closeMemoTagPopup();"></div>
 <div id="memoTagPopup" class="status-popup" style="display:none;min-width:180px;">
-  <div style="font-size:10px;color:var(--tm);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.8px">選擇標籤</div>
+  <div id="memoTagPopupTitle" style="font-size:10px;color:var(--tm);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.8px">選擇標籤</div>
   <div id="memoTagPopupList"></div>
   <div style="padding:8px 8px 4px;margin-top:4px;border-top:1px solid var(--bd);">
     <button onclick="closeMemoTagPopup()" style="width:100%;background:var(--gold);color:var(--navy);border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">完成</button>
